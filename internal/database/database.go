@@ -129,11 +129,16 @@ func (d *Database) GetHosts() ([]string, error) {
 	}
 
 	hosts := []string{}
+	uniq := map[string]bool{}
 	for obj := it.Next(); obj != nil; obj = it.Next() {
 		n, ok := obj.(Node)
 		if !ok {
 			return nil, fmt.Errorf("unable to cast node for control plane hosts: %w", err)
 		}
+		if _, exists := uniq[n.ControlPlaneHost]; exists {
+			continue
+		}
+		uniq[n.ControlPlaneHost] = true
 		hosts = append(hosts, n.ControlPlaneHost)
 	}
 	return hosts, nil

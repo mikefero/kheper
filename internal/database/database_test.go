@@ -256,6 +256,39 @@ func TestDatabase(t *testing.T) {
 		require.ElementsMatch(t, []string{"localhost", "kheper.example.com"}, hosts)
 	})
 
+	t.Run("verify a single host is available when multiple nodes on the same host are available", func(t *testing.T) {
+		d, err := database.NewDatabase()
+		require.NoError(t, err)
+		require.NotNil(t, d)
+
+		node1ID := uuid.New()
+		node2ID := uuid.New()
+		payload := map[string]interface{}{"is_valid": true}
+		err = d.SetNode(database.Node{
+			ControlPlaneHost: "localhost",
+			Hostname:         "kheper.local",
+			ID:               node1ID.String(),
+			Payload:          payload,
+			Version:          "1.2.3",
+		})
+		require.NoError(t, err)
+		err = d.SetNode(database.Node{
+			ControlPlaneHost: "localhost",
+			Hostname:         "kheper.local",
+			ID:               node2ID.String(),
+			Payload:          payload,
+			Version:          "1.2.3.1",
+		})
+		require.NoError(t, err)
+		defer d.DeleteNode("localhost", node1ID)
+		defer d.DeleteNode("localhost", node2ID)
+
+		hosts, err := d.GetHosts()
+		require.NoError(t, err)
+		require.Len(t, hosts, 1)
+		require.Equal(t, "localhost", hosts[0])
+	})
+
 	t.Run("verify host is not found when no nodes are available", func(t *testing.T) {
 		d, err := database.NewDatabase()
 		require.NoError(t, err)
