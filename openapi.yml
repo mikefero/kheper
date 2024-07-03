@@ -1,0 +1,285 @@
+openapi: 3.0.0
+info:
+  title: Kheper Mock Data Plane Host and Nodes API
+  description: |
+    API for retrieving information about hosts and nodes connected to control
+    planes.
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.html
+  version: 0.0.0
+paths:
+  /hosts:
+    get:
+      summary: List all hosts
+      description: |
+        Retrieve a list of all hosts for data plane nodes connected to control
+        planes.
+      responses:
+        '200':
+          $ref: '#/components/responses/HostsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+  /{host}:
+    get:
+      summary: List all nodes connected to a host
+      description: |
+        Retrieve a list of all nodes connected to a specific host or address.
+      parameters:
+        - $ref: '#/components/parameters/HostParameter'
+      responses:
+        '200':
+          $ref: '#/components/responses/HostNodesResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+  /{host}/{node-id}:
+    get:
+      summary: Retrieve a node
+      description: |
+        Retrieve a specific node.
+      parameters:
+        - $ref: '#/components/parameters/HostParameter'
+        - $ref: '#/components/parameters/NodeIdParameter'
+      responses:
+        '200':
+          $ref: '#/components/responses/NodeResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+  /{host}/{node-id}/{resource}:
+    get:
+      summary: Retrieve a specific resource from a node payload
+      description: |
+        Retrieve a specific resource from the root level of the config_table in
+        the payload JSON object of a node.
+      parameters:
+        - $ref: '#/components/parameters/HostParameter'
+        - $ref: '#/components/parameters/NodeIdParameter'
+        - $ref: '#/components/parameters/ResourcesParameter'
+      responses:
+        '200':
+          $ref: '#/components/responses/ResourcesResponse'
+        '404':
+          $ref: '#/components/responses/ResourceNotFoundResponse'
+
+components:
+  parameters:
+    HostParameter:
+      in: path
+      name: host
+      required: true
+      schema:
+        type: string
+        description: |
+          The RFC 1123 IP address or hostname of the control plane connected to
+          the service mesh. Must be between 1 and 253 characters long, and each
+          segment separated by dots can contain alphanumeric characters and
+          hyphens, but cannot start or end with a hyphen.
+      example: "example-host.com"
+    NodeIdParameter:
+      in: path
+      name: node-id
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: |
+        The node ID
+      example: "123e4567-e89b-12d3-a456-426614174000"
+    ResourcesParameter:
+      in: path
+      name: resource
+      required: true
+      schema:
+        type: string
+      description: |
+        The resource name
+      example: "cpu"
+
+  schemas:
+    Error:
+      type: object
+      required:
+        - status
+        - title
+        - detail
+      properties:
+        status:
+          type: integer
+          example: 400
+        title:
+          type: string
+          example: "Bad Request"
+        detail:
+          type: string
+          example: "Invalid format for parameter host: example-host.com"
+        type:
+          type: string
+          format: uri
+        instance:
+          type: string
+    Host:
+      type: string
+      example: "example-host.com"
+    HostNode:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        hostname:
+          type: string
+          example: "node1.example-host.com"
+        version:
+          type: string
+          example: "1.2.3"
+          description: |
+            Version is the Kong Gateway semantic version of the node. This
+            version can be represented as 3 or 4 integers separated by dots.
+    Node:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        hostname:
+          type: string
+          example: "node1.example-host.com"
+        version:
+          type: string
+          example: "1.2.3"
+          description: |
+            Version is the Kong Gateway semantic version of the node. This
+            version can be represented as 3 or 4 integers separated by dots.
+        payload:
+          type: object
+          additionalProperties: true
+          example:
+            config_hash: "374d97a6cdede7dbe918d7e72c29e6c8"
+            config_table:
+              _format_version: "3.0"
+              _transform: false
+              parameters:
+                - created_at: 1719610962
+                  key: "cluster_id"
+                  value: "46956d6b-4d94-4621-8663-87302bf5b18e"
+              workspaces:
+                - comment: "default workspace"
+                  config: {}
+                  created_at: 1719610962
+                  id: "0b38010c-9279-4c3e-a669-9b4f977a1efa"
+                  meta: {}
+                  name: "default"
+                  updated_at: 1719610962
+            hashes:
+              config: "374d97a6cdede7dbe918d7e72c29e6c8"
+              plugins: "00000000000000000000000000000000"
+              routes: "00000000000000000000000000000000"
+              services: "00000000000000000000000000000000"
+              targets: "00000000000000000000000000000000"
+            timestamp: 1719750771.23
+            type: "reconfigure"
+          description: |
+            The entire payload sent from the control plane.
+    Resources:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+            example:
+              # Resource example of a single service object
+              ca_certificates: null
+              client_certificate: null
+              connect_timeout: 60000
+              created_at: 1719863489
+              enabled: true
+              host: "kheper.local"
+              id: "3ec50d85-808a-4ddc-9d72-d5a29fa30aa3"
+              name: "kheper"
+              path: null
+              port: 80
+              protocol: "http"
+              read_timeout: 60000
+              retries: 5
+              tags: null
+              tls_verify: null
+              tls_verify_depth: null
+              updated_at: 1719863489
+              write_timeout: 60000
+            description: |
+              The specific resource from the payload sent from the control
+              plane that is under the 'config_table' key.
+        next:
+          type: string
+          description: |
+            The next page of results.
+          nullable: true
+          example: null
+    ResourceNotFound:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Not Found"
+
+  responses:
+    HostsResponse:
+      description: |
+        A list of hosts
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/Host'
+            example:
+              - "example-host1.com"
+              - "example-host2.com"
+    HostNodesResponse:
+      description: |
+        A list of nodes with version information
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/HostNode'
+          example:
+            - id: "123e4567-e89b-12d3-a456-426614174000"
+              hostname: "node1.example-host.com"
+              version: "1.2.3"
+            - id: "223e4567-e89b-12d3-a456-426614174001"
+              hostname: "node2.example-host.com"
+              version: "1.2.3.1"
+    NodeResponse:
+      description: |
+        The node
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Node'
+    ResourcesResponse:
+      description: |
+        The resource from the node payload
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Resources'
+    BadRequestResponse:
+      description: |
+        Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ResourceNotFoundResponse:
+      description: |
+        Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ResourceNotFound'

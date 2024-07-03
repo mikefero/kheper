@@ -1,0 +1,45 @@
+# Admin API server configuration
+server:
+  port: 5000
+  timeouts:
+    read: 15s
+    read_header: 15s
+    write: 15s
+
+# Node defaults configuration that are shared across all nodes
+defaults:
+  handshake_timeout: 15s
+  node_creation_delay: 20ms
+  ping_interval: 15s
+  ping_jitter: 5s
+
+# Node configuration for single or multiple control planes
+nodes:
+  - instances: 4
+    hostname: sequential
+    id: sequential
+    versions:
+      - 3.7.1
+      - 3.7.0
+    connection:
+      host: localhost
+      port: 8005
+      protocol: standard
+      certificate: |
+        -----BEGIN CERTIFICATE-----
+        MIIBgjCCASmgAwIBAgIUSeuxAz6iXgMudd+9QWEu94ntwKswCgYIKoZIzj0EAwIw
+        FjEUMBIGA1UEAwwLZXhhbXBsZS5jb20wIBcNMjQwNjI4MTkzNDAzWhgPMjEyNDA2
+        MDQxOTM0MDNaMBYxFDASBgNVBAMMC2V4YW1wbGUuY29tMFkwEwYHKoZIzj0CAQYI
+        KoZIzj0DAQcDQgAExSkyUUI9kElUOzGwOafVUJzbZJXUxp72kVvc5HuTPGeW+kyc
+        AEu8rGLB4dIRMIJULIpgQatwSnVg4/b4MyWCqKNTMFEwHQYDVR0OBBYEFFJoQYAb
+        JAZNETIVjIWiAR9lfGARMB8GA1UdIwQYMBaAFFJoQYAbJAZNETIVjIWiAR9lfGAR
+        MA8GA1UdEwEB/wQFMAMBAf8wCgYIKoZIzj0EAwIDRwAwRAIgJA1PePfBp9L2ShyB
+        Z2bsZcriyD3RvP0ulp0s5yV8vxECIA04GmJQcEX5Jpp4pLxpBSy2g3ze/i2Vpyyg
+        5Qbe1fj7
+        -----END CERTIFICATE-----
+      key: |
+        -----BEGIN PRIVATE KEY-----
+        MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgQUiS3CZzgoSfdTG+
+        zAwolAeSTnkw2e//Ic9dRl8GVMmhRANCAATFKTJRQj2QSVQ7MbA5p9VQnNtkldTG
+        nvaRW9zke5M8Z5b6TJwAS7ysYsHh0hEwglQsimBBq3BKdWDj9vgzJYKo
+        -----END PRIVATE KEY-----

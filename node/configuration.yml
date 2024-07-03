@@ -1,0 +1,87 @@
+plugins:
+  - name: acl
+    priority: 950
+  - name: acme
+    priority: 1705
+  - name: ai-prompt-decorator
+    priority: 772
+  - name: ai-prompt-guard
+    priority: 771
+  - name: ai-prompt-template
+    priority: 773
+  - name: ai-proxy
+    priority: 770
+  - name: ai-request-transformer
+    priority: 777
+  - name: ai-response-transformer
+    priority: 769
+  - name: aws-lambda
+    priority: 750
+  - name: azure-functions
+    priority: 749
+  - name: basic-auth
+    priority: 1100
+  - name: bot-detection
+    priority: 2500
+  - name: correlation-id
+    priority: 1
+  - name: cors
+    priority: 2000
+  - name: datadog
+    priority: 10
+  - name: file-log
+    priority: 9
+  - name: grpc-gateway
+    priority: 998
+  - name: grpc-web
+    priority: 3
+  - name: hmac-auth
+    priority: 1030
+  - name: http-log
+    priority: 12
+  - name: ip-restriction
+    priority: 990
+  - name: jwt
+    priority: 1450
+  - name: key-auth
+    priority: 1250
+  - name: ldap-auth
+    priority: 1200
+  - name: loggly
+    priority: 6
+  - name: oauth2
+    priority: 1400
+  - name: opentelemetry
+    priority: 14
+  - name: post-function
+    priority: -1000
+  - name: pre-function
+    priority: 1000000
+  - name: prometheus
+    priority: 13
+  - name: proxy-cache
+    priority: 100
+  - name: rate-limiting
+    priority: 910
+  - name: request-size-limiting
+    priority: 951
+  - name: request-termination
+    priority: 2
+  - name: request-transformer
+    priority: 801
+  - name: response-ratelimiting
+    priority: 900
+  - name: response-transformer
+    priority: 800
+  - name: session
+    priority: 1900
+  - name: statsd
+    priority: 11
+  - name: syslog
+    priority: 4
+  - name: tcp-log
+    priority: 7
+  - name: udp-log
+    priority: 8
+  - name: zipkin
+    priority: 100000

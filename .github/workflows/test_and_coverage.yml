@@ -1,0 +1,67 @@
+name: Test
+env:
+  KHEPER_TEST_WAIT_FOR: 500ms
+  KHEPER_TEST_WAIT_FOR_CAPTURE: 100ms
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.sha }}
+  cancel-in-progress: true
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '.github/workflows/**'
+      - '!.github/workflows/test_and_coverage.yml'
+      - 'docker/**'
+      - 'docs/**'
+      - 'mk/**'
+      - '.gitignore'
+      - '.golangci.yml'
+      - '.header'
+      - 'kheper.yml'
+      - 'LICENSE'
+      - 'Makefile'
+      - 'openapi.yml'
+      - 'README.md'
+      - 'redocly.yml'
+      - 'version'
+  pull_request:
+    paths-ignore:
+      - '.github/workflows/**'
+      - '!.github/workflows/test_and_coverage.yml'
+      - 'docker/**'
+      - 'docs/**'
+      - 'mk/**'
+      - '.gitignore'
+      - '.golangci.yml'
+      - '.header'
+      - 'kheper.yml'
+      - 'LICENSE'
+      - 'Makefile'
+      - 'openapi.yml'
+      - 'README.md'
+      - 'redocly.yml'
+      - 'version'
+permissions:
+  contents: read
+  pull-requests: read
+jobs:
+  test:
+    name: Test and Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      # TODO(fero): remove gofumpt after removing make test-coverage
+      - uses: luisnquin/setup-gofumpt@v2
+      - name: Test with Coverage
+        run: make test-coverage
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.out
+          name: kheper
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: mikefero/kheper

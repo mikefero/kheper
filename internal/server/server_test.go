@@ -1,0 +1,753 @@
+// Copyright © 2024 Michael Fero
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+package server_test
+
+import (
+	"context"
+	"fmt"
+	"net"
+	"net/http"
+	"strconv"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/gavv/httpexpect/v2"
+	"github.com/google/uuid"
+	"github.com/mikefero/kheper/internal/api"
+	"github.com/mikefero/kheper/internal/database"
+	"github.com/mikefero/kheper/internal/server"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+)
+
+func findUnusedLocalPort(t *testing.T) int {
+	t.Helper()
+
+	var address string
+	for i := 0; i < 10; i++ {
+		if listener, err := net.Listen("tcp", "localhost:0"); err == nil {
+			address = listener.Addr().String()
+			listener.Close()
+			break
+		}
+	}
+	if len(address) == 0 {
+		t.Fatalf("failed to get random address after 10 attempts")
+	}
+
+	tokens := strings.Split(address, ":")
+	if len(tokens) != 2 {
+		t.Fatalf("invalid address: %s", address)
+	}
+	port, err := strconv.Atoi(tokens[1])
+	if err != nil {
+		t.Fatalf("invalid port: %s", tokens[1])
+	}
+
+	return port
+}
+
+func TestServer(t *testing.T) {
+	db, err := database.NewDatabase()
+	require.NoError(t, err)
+	require.NotNil(t, db)
+
+	port := findUnusedLocalPort(t)
+	serverOpts := server.Opts{
+		Database:          db,
+		Port:              port,
+		ReadTimeout:       5 * time.Second,
+		ReadHeaderTimeout: 5 * time.Second,
+		WriteTimeout:      5 * time.Second,
+		Logger:            zap.NewNop(),
+	}
+
+	t.Run("verify error occurs when database is not set", func(t *testing.T) {
+		s, err := server.NewServer(server.Opts{})
+		require.ErrorContains(t, err, "database must be set")
+		require.Nil(t, s)
+	})
+
+	t.Run("verify error occurs when port is not set", func(t *testing.T) {
+		s, err := server.NewServer(server.Opts{
+			Database: db,
+		})
+		require.ErrorContains(t, err, "invalid port")
+		require.Nil(t, s)
+	})
+
+	t.Run("verify error occurs when read timeout is not set", func(t *testing.T) {
+		s, err := server.NewServer(server.Opts{
+			Database: db,
+			Port:     findUnusedLocalPort(t),
+		})
+		require.ErrorContains(t, err, "read timeout must be > 0")
+		require.Nil(t, s)
+	})
+
+	t.Run("verify error occurs when read header timeout is not set", func(t *testing.T) {
+		s, err := server.NewServer(server.Opts{
+			Database:    db,
+			Port:        findUnusedLocalPort(t),
+			ReadTimeout: 5 * time.Second,
+		})
+		require.ErrorContains(t, err, "read header timeout must be > 0")
+		require.Nil(t, s)
+	})
+
+	t.Run("verify error occurs when write timeout is not set", func(t *testing.T) {
+		s, err := server.NewServer(server.Opts{
+			Database:          db,
+			Port:              findUnusedLocalPort(t),
+			ReadTimeout:       5 * time.Second,
+			ReadHeaderTimeout: 5 * time.Second,
+		})
+		require.ErrorContains(t, err, "write timeout must be > 0")
+		require.Nil(t, s)
+	})
+
+	t.Run("verify error occurs when logger is not set", func(t *testing.T) {
+		s, err := server.NewServer(server.Opts{
+			Database:          db,
+			Port:              findUnusedLocalPort(t),
+			ReadTimeout:       5 * time.Second,
+			ReadHeaderTimeout: 5 * time.Second,
+			WriteTimeout:      5 * time.Second,
+		})
+		require.ErrorContains(t, err, "logger must be set")
+		require.Nil(t, s)
+	})
+
+	t.Run("verify server is created", func(t *testing.T) {
+		s, err := server.NewServer(serverOpts)
+		require.NoError(t, err)
+		require.NotNil(t, s)
+	})
+
+	t.Run("verify server is created only once", func(t *testing.T) {
+		s, err := server.NewServer(serverOpts)
+		require.NoError(t, err)
+		require.NotNil(t, s)
+		s2, err := server.NewServer(serverOpts)
+		require.NoError(t, err)
+		require.NotNil(t, s2)
+		require.Equal(t, s, s2)
+	})
+
+	t.Run("verify requests and responses are handled properly", func(t *testing.T) {
+		s, err := server.NewServer(serverOpts)
+		require.NoError(t, err)
+		require.NotNil(t, s)
+
+		// Start the server
+		wg := sync.WaitGroup{}
+		wg.Add(1)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer wg.Wait()
+		defer cancel()
+		defer s.Close()
+		go func() {
+			defer wg.Done()
+
+			serverCloseCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			defer cancel()
+
+			if err := s.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				require.NoError(t, err)
+				return
+			}
+			if err := s.Shutdown(serverCloseCtx); err != nil {
+				require.NoError(t, err)
+			}
+		}()
+
+		// Create the client
+		client := httpexpect.Default(t, fmt.Sprintf("http://localhost:%d", port))
+
+		t.Run("verify hosts are empty when no hosts are available", func(t *testing.T) {
+			client.GET("/hosts").
+				Expect().
+				Status(http.StatusOK).
+				JSON().
+				Array().
+				IsEmpty()
+		})
+
+		t.Run("verify a single host is available", func(t *testing.T) {
+			id := uuid.New()
+			err := db.SetNode(database.Node{
+				ControlPlaneHost: "localhost",
+				Hostname:         "kheper.local",
+				ID:               id.String(),
+				Payload:          map[string]interface{}{"is_valid": true},
+				Version:          "1.2.3",
+			})
+			require.NoError(t, err)
+			defer db.DeleteNode("localhost", id)
+
+			client.GET("/hosts").
+				Expect().
+				Status(http.StatusOK).
+				JSON().
+				Array().
+				ContainsOnly("localhost")
+		})
+
+		t.Run("verify multiple hosts are available", func(t *testing.T) {
+			node1ID := uuid.New()
+			node2ID := uuid.New()
+			err := db.SetNode(database.Node{
+				ControlPlaneHost: "localhost",
+				Hostname:         "kheper.local",
+				ID:               node1ID.String(),
+				Payload:          map[string]interface{}{"is_valid": true},
+				Version:          "1.2.3",
+			})
+			require.NoError(t, err)
+			err = db.SetNode(database.Node{
+				ControlPlaneHost: "kheper.example.com",
+				Hostname:         "kheper.local",
+				ID:               node2ID.String(),
+				Payload:          map[string]interface{}{"is_valid": true},
+				Version:          "1.2.3.1",
+			})
+			require.NoError(t, err)
+			defer db.DeleteNode("localhost", node1ID)
+			defer db.DeleteNode("kheper.example.com", node2ID)
+
+			client.GET("/hosts").
+				Expect().
+				Status(http.StatusOK).
+				JSON().
+				Array().
+				ContainsOnly("localhost", "kheper.example.com")
+		})
+
+		t.Run("verify nodes are empty when no hosts are available", func(t *testing.T) {
+			expected := `{
+				"message": "resource not found: host"
+			}`
+			r := client.GET("/localhost").
+				Expect().
+				Status(http.StatusNotFound)
+			r.Header("Content-Type").IsEqual("application/problem+json")
+			require.JSONEq(t, expected, r.Body().Raw())
+		})
+
+		t.Run("verify a single node is available", func(t *testing.T) {
+			id := uuid.New()
+			node := database.Node{
+				ControlPlaneHost: "localhost",
+				Hostname:         "kheper.local",
+				ID:               id.String(),
+				Payload:          map[string]interface{}{"is_valid": true},
+				Version:          "1.2.3",
+			}
+			err := db.SetNode(node)
+			require.NoError(t, err)
+			defer db.DeleteNode("localhost", id)
+
+			expected := api.HostNodesResponse{
+				{
+					Id:       &id,
+					Hostname: &node.Hostname,
+					Version:  &node.Version,
+				},
+			}
+			client.GET("/localhost").
+				Expect().
+				Status(http.StatusOK).
+				JSON().
+				Array().
+				IsEqual(expected)
+		})
+
+		t.Run("verify multiple nodes are available", func(t *testing.T) {
+			node1ID := uuid.New()
+			node2ID := uuid.New()
+			node1 := database.Node{
+				ControlPlaneHost: "localhost",
+				Hostname:         "kheper.local",
+				ID:               node1ID.String(),
+				Payload:          map[string]interface{}{"is_valid": true},
+				Version:          "1.2.3",
+			}
+			node2 := database.Node{
+				ControlPlaneHost: "localhost",
+				Hostname:         "kheper.local",
+				ID:               node2ID.String(),
+				Payload:          map[string]interface{}{"is_valid": true},
+				Version:          "1.2.3.1",
+			}
+			err := db.SetNode(node1)
+			require.NoError(t, err)
+			err = db.SetNode(node2)
+			require.NoError(t, err)
+			defer db.DeleteNode("localhost", node1ID)
+			defer db.DeleteNode("localhost", node2ID)
+
+			expected := api.HostNodesResponse{
+				{
+					Id:       &node1ID,
+					Hostname: &node1.Hostname,
+					Version:  &node1.Version,
+				},
+				{
+					Id:       &node2ID,
+					Hostname: &node2.Hostname,
+					Version:  &node2.Version,
+				},
+			}
+			client.GET("/localhost").
+				Expect().
+				Status(http.StatusOK).
+				JSON().
+				Array().
+				ContainsOnly(expected[0], expected[1])
+		})
+
+		t.Run("verify different nodes are available with different hosts", func(t *testing.T) {
+			node1ID := uuid.New()
+			node2ID := uuid.New()
+			node1 := database.Node{
+				ControlPlaneHost: "localhost",
+				Hostname:         "kheper.local",
+				ID:               node1ID.String(),
+				Payload:          map[string]interface{}{"is_valid": true},
+				Version:          "1.2.3",
+			}
+			node2 := database.Node{
+				ControlPlaneHost: "kheper.example.com",
+				Hostname:         "kheper.local",
+				ID:               node2ID.String(),
+				Payload:          map[string]interface{}{"is_valid": true},
+				Version:          "1.2.3.1",
+			}
+			err := db.SetNode(node1)
+			require.NoError(t, err)
+			err = db.SetNode(node2)
+			require.NoError(t, err)
+			defer db.DeleteNode("localhost", node1ID)
+			defer db.DeleteNode("kheper.example.com", node2ID)
+
+			expectedNode1 := api.HostNodesResponse{
+				{
+					Id:       &node1ID,
+					Hostname: &node1.Hostname,
+					Version:  &node1.Version,
+				},
+			}
+			client.GET("/localhost").
+				Expect().
+				Status(http.StatusOK).
+				JSON().
+				Array().
+				IsEqual(expectedNode1)
+			expectedNode2 := api.HostNodesResponse{
+				{
+					Id:       &node2ID,
+					Hostname: &node2.Hostname,
+					Version:  &node2.Version,
+				},
+			}
+			client.GET("/kheper.example.com").
+				Expect().
+				Status(http.StatusOK).
+				JSON().
+				Array().
+				IsEqual(expectedNode2)
+		})
+
+		t.Run("verify a node can be retrieved", func(t *testing.T) {
+			id := uuid.New()
+			node := database.Node{
+				ControlPlaneHost: "localhost",
+				Hostname:         "kheper.local",
+				ID:               id.String(),
+				Payload:          map[string]interface{}{"is_valid": true},
+				Version:          "1.2.3",
+			}
+			err := db.SetNode(node)
+			require.NoError(t, err)
+			defer db.DeleteNode("localhost", id)
+
+			expected := api.Node{
+				Hostname: &node.Hostname,
+				Id:       &id,
+				Payload:  &node.Payload,
+				Version:  &node.Version,
+			}
+			client.GET("/localhost/{id}", id).
+				Expect().
+				Status(http.StatusOK).
+				JSON().
+				Object().
+				IsEqual(expected)
+		})
+
+		t.Run("verify different nodes are available within the same host", func(t *testing.T) {
+			node1ID := uuid.New()
+			node2ID := uuid.New()
+			node1 := database.Node{
+				ControlPlaneHost: "localhost",
+				Hostname:         "kheper.local",
+				ID:               node1ID.String(),
+				Payload:          map[string]interface{}{"is_valid": true},
+				Version:          "1.2.3",
+			}
+			node2 := database.Node{
+				ControlPlaneHost: "localhost",
+				Hostname:         "kheper.local",
+				ID:               node2ID.String(),
+				Payload:          map[string]interface{}{"is_valid": true},
+				Version:          "1.2.3.1",
+			}
+			err := db.SetNode(node1)
+			require.NoError(t, err)
+			err = db.SetNode(node2)
+			require.NoError(t, err)
+			defer db.DeleteNode("localhost", node1ID)
+			defer db.DeleteNode("localhost", node2ID)
+
+			expected := api.Node{
+				Hostname: &node1.Hostname,
+				Id:       &node1ID,
+				Payload:  &node1.Payload,
+				Version:  &node1.Version,
+			}
+			client.GET("/localhost/{id}", node1ID).
+				Expect().
+				Status(http.StatusOK).
+				JSON().
+				Object().
+				IsEqual(expected)
+			expected = api.Node{
+				Hostname: &node2.Hostname,
+				Id:       &node2ID,
+				Payload:  &node2.Payload,
+				Version:  &node2.Version,
+			}
+			client.GET("/localhost/{id}", node2ID).
+				Expect().
+				Status(http.StatusOK).
+				JSON().
+				Object().
+				IsEqual(expected)
+		})
+
+		t.Run("verify different nodes are available within different hosts", func(t *testing.T) {
+			node1ID := uuid.New()
+			node2ID := uuid.New()
+			node1 := database.Node{
+				ControlPlaneHost: "localhost",
+				Hostname:         "kheper.local",
+				ID:               node1ID.String(),
+				Payload:          map[string]interface{}{"is_valid": true},
+				Version:          "1.2.3",
+			}
+			node2 := database.Node{
+				ControlPlaneHost: "kheper.example.com",
+				Hostname:         "kheper.local",
+				ID:               node2ID.String(),
+				Payload:          map[string]interface{}{"is_valid": true},
+				Version:          "1.2.3.1",
+			}
+			err := db.SetNode(node1)
+			require.NoError(t, err)
+			err = db.SetNode(node2)
+			require.NoError(t, err)
+			defer db.DeleteNode("localhost", node1ID)
+			defer db.DeleteNode("kheper.example.com", node2ID)
+
+			expectedNode1 := api.Node{
+				Hostname: &node1.Hostname,
+				Id:       &node1ID,
+				Payload:  &node1.Payload,
+				Version:  &node1.Version,
+			}
+			client.GET("/localhost/{id}", node1ID).
+				Expect().
+				Status(http.StatusOK).
+				JSON().
+				Object().
+				IsEqual(expectedNode1)
+			expectedNode2 := api.Node{
+				Hostname: &node2.Hostname,
+				Id:       &node2ID,
+				Payload:  &node2.Payload,
+				Version:  &node2.Version,
+			}
+			client.GET("/kheper.example.com/{id}", node2ID).
+				Expect().
+				Status(http.StatusOK).
+				JSON().
+				Object().
+				IsEqual(expectedNode2)
+		})
+
+		t.Run("verify nodes is not found when node ID is not available", func(t *testing.T) {
+			id := uuid.New()
+			node := database.Node{
+				ControlPlaneHost: "localhost",
+				Hostname:         "kheper.local",
+				ID:               id.String(),
+				Payload:          map[string]interface{}{"is_valid": true},
+				Version:          "1.2.3",
+			}
+			err := db.SetNode(node)
+			require.NoError(t, err)
+			defer db.DeleteNode("localhost", id)
+
+			expected := `{
+				"message": "resource not found: node"
+			}`
+			r := client.GET("/localhost/{id}", uuid.NewString()).
+				Expect().
+				Status(http.StatusNotFound)
+			r.Header("Content-Type").IsEqual("application/problem+json")
+			require.JSONEq(t, expected, r.Body().Raw())
+		})
+
+		t.Run("verify node is not found for resource when node is not valid", func(t *testing.T) {
+			id := uuid.New()
+			node := database.Node{
+				ControlPlaneHost: "localhost",
+				Hostname:         "kheper.local",
+				ID:               id.String(),
+				Payload:          map[string]interface{}{"is_valid": true},
+				Version:          "1.2.3",
+			}
+			err := db.SetNode(node)
+			require.NoError(t, err)
+			defer db.DeleteNode("localhost", id)
+
+			expected := `{
+				"message": "resource not found: node"
+			}`
+			r := client.GET("/localhost/{id}/services", uuid.NewString()).
+				Expect().
+				Status(http.StatusNotFound)
+			r.Header("Content-Type").IsEqual("application/problem+json")
+			require.JSONEq(t, expected, r.Body().Raw())
+		})
+
+		t.Run("verify internal server error for resource config_table is not available", func(t *testing.T) {
+			id := uuid.New()
+			node := database.Node{
+				ControlPlaneHost: "localhost",
+				Hostname:         "kheper.local",
+				ID:               id.String(),
+				Payload:          map[string]interface{}{"is_valid": true},
+				Version:          "1.2.3",
+			}
+			err := db.SetNode(node)
+			require.NoError(t, err)
+			defer db.DeleteNode("localhost", id)
+
+			expected := `{
+				"detail": "internal server error: unable to retrieve config_table",
+				"status": 500,
+				"title": "Internal Server Error"
+			}`
+			r := client.GET("/localhost/{id}/services", id).
+				Expect().
+				Status(http.StatusInternalServerError)
+			r.Header("Content-Type").IsEqual("application/problem+json")
+			require.JSONEq(t, expected, r.Body().Raw())
+		})
+
+		t.Run("verify resource is not found for when resource is not available", func(t *testing.T) {
+			id := uuid.New()
+			node := database.Node{
+				ControlPlaneHost: "localhost",
+				Hostname:         "kheper.local",
+				ID:               id.String(),
+				Payload: map[string]interface{}{
+					"config_table": map[string]interface{}{
+						"stuff": map[string]interface{}{},
+					},
+				},
+				Version: "1.2.3",
+			}
+			err := db.SetNode(node)
+			require.NoError(t, err)
+			defer db.DeleteNode("localhost", id)
+
+			expected := `{
+				"message": "resource not found: services"
+			}`
+			r := client.GET("/localhost/{id}/services", id).
+				Expect().
+				Status(http.StatusNotFound)
+			r.Header("Content-Type").IsEqual("application/problem+json")
+			require.JSONEq(t, expected, r.Body().Raw())
+		})
+
+		t.Run("verify internal server error for resource when config_table is not valid map[string]interface{}", func(t *testing.T) {
+			id := uuid.New()
+			node := database.Node{
+				ControlPlaneHost: "localhost",
+				Hostname:         "kheper.local",
+				ID:               id.String(),
+				Payload: map[string]interface{}{
+					"config_table": "invalid",
+				},
+				Version: "1.2.3",
+			}
+			err := db.SetNode(node)
+			require.NoError(t, err)
+			defer db.DeleteNode("localhost", id)
+
+			expected := `{
+				"detail": "internal server error: unable to cast config_table",
+				"status": 500,
+				"title": "Internal Server Error"
+			}`
+			r := client.GET("/localhost/{id}/services", id).
+				Expect().
+				Status(http.StatusInternalServerError)
+			r.Header("Content-Type").IsEqual("application/problem+json")
+			require.JSONEq(t, expected, r.Body().Raw())
+		})
+
+		t.Run("verify internal server error for resource when resources is not valid []interface{}", func(t *testing.T) {
+			id := uuid.New()
+			node := database.Node{
+				ControlPlaneHost: "localhost",
+				Hostname:         "kheper.local",
+				ID:               id.String(),
+				Payload: map[string]interface{}{
+					"config_table": map[string]interface{}{
+						"services": "invalid",
+					},
+				},
+				Version: "1.2.3",
+			}
+			err := db.SetNode(node)
+			require.NoError(t, err)
+			defer db.DeleteNode("localhost", id)
+
+			expected := `{
+				"detail": "internal server error: unable to cast resources",
+				"status": 500,
+				"title": "Internal Server Error"
+			}`
+			r := client.GET("/localhost/{id}/services", id).
+				Expect().
+				Status(http.StatusInternalServerError)
+			r.Header("Content-Type").IsEqual("application/problem+json")
+			require.JSONEq(t, expected, r.Body().Raw())
+		})
+
+		t.Run("verify internal server error for resource when resource is not valid map[string]interface{}", func(t *testing.T) {
+			id := uuid.New()
+			node := database.Node{
+				ControlPlaneHost: "localhost",
+				Hostname:         "kheper.local",
+				ID:               id.String(),
+				Payload: map[string]interface{}{
+					"config_table": map[string]interface{}{
+						"services": []interface{}{
+							"invalid",
+						},
+					},
+				},
+				Version: "1.2.3",
+			}
+			err := db.SetNode(node)
+			require.NoError(t, err)
+			defer db.DeleteNode("localhost", id)
+
+			expected := `{
+				"detail": "internal server error: unable to cast resource",
+				"status": 500,
+				"title": "Internal Server Error"
+			}`
+			r := client.GET("/localhost/{id}/services", id).
+				Expect().
+				Status(http.StatusInternalServerError)
+			r.Header("Content-Type").IsEqual("application/problem+json")
+			require.JSONEq(t, expected, r.Body().Raw())
+		})
+
+		t.Run("verify resources are available for a node", func(t *testing.T) {
+			id := uuid.New()
+			node := database.Node{
+				ControlPlaneHost: "localhost",
+				Hostname:         "kheper.local",
+				ID:               id.String(),
+				Payload: map[string]interface{}{
+					"config_table": map[string]interface{}{
+						"services": []interface{}{
+							map[string]interface{}{
+								"name": "service1",
+							},
+							map[string]interface{}{
+								"name": "service2",
+							},
+						},
+						"routes": []interface{}{
+							map[string]interface{}{
+								"name": "route1",
+							},
+							map[string]interface{}{
+								"name": "route2",
+							},
+						},
+					},
+				},
+				Version: "1.2.3",
+			}
+			err := db.SetNode(node)
+			require.NoError(t, err)
+			defer db.DeleteNode("localhost", id)
+
+			expected := `{
+				"data": [
+					{
+						"name": "service1"
+					},
+					{
+						"name": "service2"
+					}
+				],
+				"next": null
+			}`
+			r := client.GET("/localhost/{id}/services", id).
+				Expect().
+				Status(http.StatusOK)
+			r.Header("Content-Type").IsEqual("application/json")
+			require.JSONEq(t, expected, r.Body().Raw())
+
+			expected = `{
+				"data": [
+					{
+						"name": "route1"
+					},
+					{
+						"name": "route2"
+					}
+				],
+				"next": null
+			}`
+			r = client.GET("/localhost/{id}/routes", id).
+				Expect().
+				Status(http.StatusOK)
+			r.Header("Content-Type").IsEqual("application/json")
+			require.JSONEq(t, expected, r.Body().Raw())
+		})
+	})
+}

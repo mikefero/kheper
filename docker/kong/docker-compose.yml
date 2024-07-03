@@ -1,0 +1,67 @@
+version: '3'
+
+services:
+  kong-database:
+    image: postgres:15
+    labels:
+      com.kheper.local: "true"
+    environment:
+      POSTGRES_DB: kong
+      POSTGRES_USER: kong
+      POSTGRES_PASSWORD: kong
+    healthcheck:
+      test:
+        - CMD
+        - pg_isready
+        - -U
+        - kong
+      timeout: 10s
+      interval: 5s
+      retries: 10
+
+  kong-migration:
+    image: kong:3.7.1
+    depends_on:
+      kong-database:
+        condition: service_healthy
+        required: true
+    labels:
+      com.kheper.local: "true"
+    command: kong migrations bootstrap & kong migrations up
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: kong-database
+      KONG_PG_USER: kong
+      KONG_PG_PASSWORD: kong
+
+  kong-control-plane:
+    image: kong:3.7.1
+    depends_on:
+      kong-database:
+        condition: service_healthy
+        required: true
+    labels:
+      com.kheper.local: "true"
+    environment:
+      KONG_ADMIN_LISTEN: 0.0.0.0:8001,0.0.0.0:8444
+      KONG_ANONYMOUS_REPORTS: "off"
+      KONG_CLUSTER_CERT: /cluster.crt
+      KONG_CLUSTER_CERT_KEY: /cluster.key
+      KONG_DATABASE: postgres
+      KONG_LOG_LEVEL: info
+      KONG_NGINX_WORKER_PROCESSES: 1
+      KONG_PG_HOST: kong-database
+      KONG_PG_PASSWORD: kong
+      KONG_PG_USER: kong
+      KONG_ROLE: control_plane
+      KONG_ROUTER_FLAVOR: expressions
+    ports:
+      - "8001:8001"
+      - "8005:8005"
+      - "8444:8444"
+    restart: always
+    sysctls:
+      net.ipv6.conf.all.disable_ipv6: "0"
+    volumes:
+      - ./cluster.crt:/cluster.crt:ro
+      - ./cluster.key:/cluster.key:ro
