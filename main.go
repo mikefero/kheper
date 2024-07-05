@@ -15,8 +15,10 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/tls"
 	"fmt"
+	"math/big"
 	"os"
 	"os/signal"
 	"strings"
@@ -61,8 +63,7 @@ func main() {
 	// Create a new context with a cancel function
 	ctx, cancel := context.WithCancel(context.Background())
 
-	// Handle node run errors and handle user break signals
-	errSignal := make(chan error, 1)
+	// Handle user break signals
 	breakSignal := make(chan os.Signal, 1)
 	signal.Notify(breakSignal, os.Interrupt, syscall.SIGTERM)
 
@@ -71,17 +72,26 @@ func main() {
 	instancesCreateWG := sync.WaitGroup{}
 	nodeWG := sync.WaitGroup{}
 
-	// Create a Once to ensure that the error is only logged once before being
-	// closed
-	once := sync.Once{}
-
 	// Cleanup resources on exit
 	defer cancel()
 	defer close(breakSignal)
 
-	// Create the nodes from the configuration. In order to ensure that error and
-	// user break signals are handled properly, the nodes are created in a
-	// goroutine.
+	// Create a jittered reconnection interval function
+	reconnectionInternal := func() time.Duration {
+		jitter, err := rand.Int(rand.Reader, big.NewInt(config.Defaults.ReconnectionJitter.Nanoseconds()))
+		if err != nil {
+			logger.Error("unable to generate jitter", zap.Error(err))
+			jitter = big.NewInt(0)
+		}
+		logger.Debug("reconnection interval",
+			zap.Duration("interval", config.Defaults.ReconnectionInterval),
+			zap.Duration("jitter", time.Duration(jitter.Int64())),
+		)
+		return config.Defaults.ReconnectionInterval + time.Duration(jitter.Int64())
+	}
+
+	// Create the nodes from the configuration. In order to ensure that user
+	// break signals are handled properly and the nodes are created in a goroutine.
 	for _, n := range config.Nodes {
 		// Verify the protocol is valid
 		protocol, err := node.Parse(n.Connection.Protocol)
@@ -119,7 +129,8 @@ func main() {
 						hostname = fmt.Sprintf("kheper-%d.local", i+1)
 					}
 
-					// Set the node ID, generate a sequential one, or generate a unique one based on the index
+					// Set the node ID, generate a sequential one or generate a unique one
+					// based on the index
 					var nodeID uuid.UUID
 					switch strings.ToLower(n.ID) {
 					case "sequential":
@@ -158,20 +169,45 @@ func main() {
 						panic(fmt.Sprintf("unable to create node: %v", err))
 					}
 
-					// Run the node
+					// Run the node with reconnection logic
 					nodeWG.Add(1)
 					go func() {
 						defer nodeWG.Done()
 
-						if err := node.Run(ctx); err != nil {
-							once.Do(func() {
-								defer close(errSignal)
-								errSignal <- err
-							})
+						for {
+							select {
+							case <-ctx.Done():
+								return
+							default:
+								if err := node.Run(ctx); err != nil {
+									logger.Warn("node run failed, attempting to reconnect", zap.Error(err))
+									select {
+									case <-ctx.Done():
+										return
+									case <-time.After(reconnectionInternal()):
+										continue
+									}
+								}
+
+								// Handle node restarts if the context is not done; usually this
+								// indicates the server has been terminated
+								select {
+								case <-ctx.Done():
+									return
+								default:
+									select {
+									case <-ctx.Done():
+										return
+									case <-time.After(reconnectionInternal()):
+										continue
+									}
+								}
+							}
 						}
 					}()
 
-					// Delay the next instance creation if it's not the last one
+					// Delay the next instance creation if it's not the last one or the
+					// context is done
 					if i < n.Instances-1 {
 						select {
 						case <-ctx.Done():
@@ -185,19 +221,9 @@ func main() {
 	}
 
 	// Wait for a signal
-	for {
-		select {
-		case <-breakSignal:
-			logger.Info("user requested shutdown")
-			cancel()
-			instancesCreateWG.Wait()
-			nodeWG.Wait()
-			return
-		case err := <-errSignal:
-			cancel()
-			instancesCreateWG.Wait()
-			nodeWG.Wait()
-			panic(fmt.Sprintf("client error occurred: %v", err))
-		}
-	}
+	<-breakSignal
+	logger.Info("user requested shutdown")
+	cancel()
+	instancesCreateWG.Wait()
+	nodeWG.Wait()
 }

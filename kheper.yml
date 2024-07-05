@@ -12,6 +12,8 @@ defaults:
   node_creation_delay: 20ms
   ping_interval: 15s
   ping_jitter: 5s
+  reconnection_interval: 10s
+  reconnection_jitter: 5s
 
 # Node configuration for single or multiple control planes
 nodes:
