@@ -66,8 +66,10 @@ func main() {
 	breakSignal := make(chan os.Signal, 1)
 	signal.Notify(breakSignal, os.Interrupt, syscall.SIGTERM)
 
-	// Create a WaitGroup to ensure all nodes finish properly
-	wg := sync.WaitGroup{}
+	// Create a WaitGroup to ensure all nodes finish properly and are grouped in
+	// creation by nodes
+	instancesCreateWG := sync.WaitGroup{}
+	nodeWG := sync.WaitGroup{}
 
 	// Create a Once to ensure that the error is only logged once before being
 	// closed
@@ -77,7 +79,9 @@ func main() {
 	defer cancel()
 	defer close(breakSignal)
 
-	// Create the nodes from the configuration
+	// Create the nodes from the configuration. In order to ensure that error and
+	// user break signals are handled properly, the nodes are created in a
+	// goroutine.
 	for _, n := range config.Nodes {
 		// Verify the protocol is valid
 		protocol, err := node.Parse(n.Connection.Protocol)
@@ -91,73 +95,93 @@ func main() {
 			panic(fmt.Sprintf("unable to generate X509 key pair: %v", err))
 		}
 
-		for i := 0; i < n.Instances; i++ {
-			// Verify the node version is valid
-			versionStr := n.Versions[i%len(n.Versions)]
-			version, err := semver.Parse(versionStr)
-			if err != nil {
-				panic(fmt.Sprintf("unable to validate node version %s: %v", versionStr, err))
-			}
+		// Create the node instances in a goroutine
+		instancesCreateWG.Add(1)
+		go func() {
+			defer instancesCreateWG.Done()
 
-			// Set the hostname or generate a sequential one based on the index
-			hostname := n.Hostname
-			if strings.ToLower(n.Hostname) == "sequential" {
-				hostname = fmt.Sprintf("kheper-%d.local", i+1)
-			}
+			// Create the nodes
+			for i := 0; i < n.Instances; i++ {
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					// Verify the node version is valid
+					versionStr := n.Versions[i%len(n.Versions)]
+					version, err := semver.Parse(versionStr)
+					if err != nil {
+						panic(fmt.Sprintf("unable to validate node version %s: %v", versionStr, err))
+					}
 
-			// Set the node ID, generate a sequential one, or generate a unique one
-			// based on the index
-			var nodeID uuid.UUID
-			switch strings.ToLower(n.ID) {
-			case "sequential":
-				nodeID, err = uuid.Parse(fmt.Sprintf("00000000-0000-4000-8000-%012x", i+1))
-				if err != nil {
-					panic(fmt.Sprintf("unable to parse node ID %s: %v", nodeID, err))
+					// Set the hostname or generate a sequential one based on the index
+					hostname := n.Hostname
+					if strings.ToLower(n.Hostname) == "sequential" {
+						hostname = fmt.Sprintf("kheper-%d.local", i+1)
+					}
+
+					// Set the node ID, generate a sequential one, or generate a unique one based on the index
+					var nodeID uuid.UUID
+					switch strings.ToLower(n.ID) {
+					case "sequential":
+						nodeID, err = uuid.Parse(fmt.Sprintf("00000000-0000-4000-8000-%012x", i+1))
+						if err != nil {
+							panic(fmt.Sprintf("unable to parse node ID %s: %v", nodeID, err))
+						}
+					case "unique":
+						nodeID = uuid.New()
+					default:
+						nodeID, err = uuid.Parse(n.ID)
+						if err != nil {
+							panic(fmt.Sprintf("unable to parse node ID %s: %v", nodeID, err))
+						}
+					}
+
+					// Create the node options
+					nodeOpts := node.Opts{
+						ID:                  nodeID,
+						Hostname:            hostname,
+						Version:             version,
+						Protocol:            protocol,
+						Host:                n.Connection.Host,
+						Port:                n.Connection.Port,
+						Certificate:         certificate,
+						HandshakeTimeout:    config.Defaults.HandshakeTimeout,
+						PingInterval:        config.Defaults.PingInterval,
+						PingJitter:          config.Defaults.PingJitter,
+						ServerConfiguration: &config.Server,
+						Logger:              logger,
+					}
+
+					// Create the node
+					node, err := node.NewNode(nodeOpts)
+					if err != nil {
+						panic(fmt.Sprintf("unable to create node: %v", err))
+					}
+
+					// Run the node
+					nodeWG.Add(1)
+					go func() {
+						defer nodeWG.Done()
+
+						if err := node.Run(ctx); err != nil {
+							once.Do(func() {
+								defer close(errSignal)
+								errSignal <- err
+							})
+						}
+					}()
+
+					// Delay the next instance creation if it's not the last one
+					if i < n.Instances-1 {
+						select {
+						case <-ctx.Done():
+							return
+						case <-time.After(config.Defaults.NodeCreationDelay):
+						}
+					}
 				}
-			case "unique":
-				nodeID = uuid.New()
-			default:
-				nodeID, err = uuid.Parse(n.ID)
-				if err != nil {
-					panic(fmt.Sprintf("unable to parse node ID %s: %v", nodeID, err))
-				}
 			}
-
-			// Create the node
-			node, err := node.NewNode(node.Opts{
-				ID:                  nodeID,
-				Hostname:            hostname,
-				Version:             version,
-				Protocol:            protocol,
-				Host:                n.Connection.Host,
-				Port:                n.Connection.Port,
-				Certificate:         certificate,
-				HandshakeTimeout:    config.Defaults.HandshakeTimeout,
-				PingInterval:        config.Defaults.PingInterval,
-				PingJitter:          config.Defaults.PingJitter,
-				ServerConfiguration: &config.Server,
-				Logger:              logger,
-			})
-			if err != nil {
-				panic(fmt.Sprintf("unable to create node: %v", err))
-			}
-
-			// Run the node
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-
-				if err := node.Run(ctx); err != nil {
-					once.Do(func() {
-						defer close(errSignal)
-						errSignal <- err
-					})
-				}
-			}()
-
-			// Delay the next node creation
-			time.Sleep(config.Defaults.NodeCreationDelay)
-		}
+		}()
 	}
 
 	// Wait for a signal
@@ -166,11 +190,13 @@ func main() {
 		case <-breakSignal:
 			logger.Info("user requested shutdown")
 			cancel()
-			wg.Wait()
+			instancesCreateWG.Wait()
+			nodeWG.Wait()
 			return
 		case err := <-errSignal:
 			cancel()
-			wg.Wait()
+			instancesCreateWG.Wait()
+			nodeWG.Wait()
 			panic(fmt.Sprintf("client error occurred: %v", err))
 		}
 	}

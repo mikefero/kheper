@@ -14,3 +14,7 @@ kong-down:
 .PHONY: kong-up
 kong-up:
 	@docker compose -f "$(APP_DIR)/docker/kong/docker-compose.yml" up -d
+
+.PHONY: kong-up-stdout
+kong-up-stdout:
+	@docker compose -f "$(APP_DIR)/docker/kong/docker-compose.yml" up
