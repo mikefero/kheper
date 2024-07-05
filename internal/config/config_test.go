@@ -41,10 +41,12 @@ func TestConfig(t *testing.T) {
 				},
 			},
 			Defaults: config.Defaults{
-				HandshakeTimeout:  15 * time.Second,
-				NodeCreationDelay: 20 * time.Millisecond,
-				PingInterval:      15 * time.Second,
-				PingJitter:        5 * time.Second,
+				HandshakeTimeout:     15 * time.Second,
+				NodeCreationDelay:    20 * time.Millisecond,
+				PingInterval:         15 * time.Second,
+				PingJitter:           5 * time.Second,
+				ReconnectionInterval: 10 * time.Second,
+				ReconnectionJitter:   5 * time.Second,
 			},
 			Nodes: []config.Node{
 				{
@@ -82,10 +84,12 @@ func TestConfig(t *testing.T) {
 				},
 			},
 			Defaults: config.Defaults{
-				HandshakeTimeout:  15 * time.Second,
-				NodeCreationDelay: 20 * time.Millisecond,
-				PingInterval:      15 * time.Second,
-				PingJitter:        5 * time.Second,
+				HandshakeTimeout:     15 * time.Second,
+				NodeCreationDelay:    20 * time.Millisecond,
+				PingInterval:         15 * time.Second,
+				PingJitter:           5 * time.Second,
+				ReconnectionInterval: 10 * time.Second,
+				ReconnectionJitter:   5 * time.Second,
 			},
 			Nodes: []config.Node{
 				{
@@ -141,10 +145,12 @@ nodes:
 				},
 			},
 			Defaults: config.Defaults{
-				HandshakeTimeout:  15 * time.Second,
-				NodeCreationDelay: 20 * time.Millisecond,
-				PingInterval:      15 * time.Second,
-				PingJitter:        5 * time.Second,
+				HandshakeTimeout:     15 * time.Second,
+				NodeCreationDelay:    20 * time.Millisecond,
+				PingInterval:         15 * time.Second,
+				PingJitter:           5 * time.Second,
+				ReconnectionInterval: 10 * time.Second,
+				ReconnectionJitter:   5 * time.Second,
 			},
 			Nodes: []config.Node{
 				{
@@ -204,10 +210,12 @@ nodes:
 				},
 			},
 			Defaults: config.Defaults{
-				HandshakeTimeout:  15 * time.Second,
-				NodeCreationDelay: 20 * time.Millisecond,
-				PingInterval:      15 * time.Second,
-				PingJitter:        5 * time.Second,
+				HandshakeTimeout:     15 * time.Second,
+				NodeCreationDelay:    20 * time.Millisecond,
+				PingInterval:         15 * time.Second,
+				PingJitter:           5 * time.Second,
+				ReconnectionInterval: 10 * time.Second,
+				ReconnectionJitter:   5 * time.Second,
 			},
 			Nodes: []config.Node{
 				{
@@ -237,6 +245,8 @@ nodes:
 		t.Setenv("KHEPER_DEFAULTS_NODE_CREATION_DELAY", "2ms")
 		t.Setenv("KHEPER_DEFAULTS_PING_INTERVAL", "3s")
 		t.Setenv("KHEPER_DEFAULTS_PING_JITTER", "4s")
+		t.Setenv("KHEPER_DEFAULTS_RECONNECTION_INTERVAL", "1s")
+		t.Setenv("KHEPER_DEFAULTS_RECONNECTION_JITTER", "2s")
 		t.Setenv("KHEPER_NODES_INSTANCES", "5")
 		t.Setenv("KHEPER_NODES_HOSTNAME", "kheper.local")
 		t.Setenv("KHEPER_NODES_ID", "unique")
@@ -257,10 +267,12 @@ nodes:
 				},
 			},
 			Defaults: config.Defaults{
-				HandshakeTimeout:  time.Second,
-				NodeCreationDelay: 2 * time.Millisecond,
-				PingInterval:      3 * time.Second,
-				PingJitter:        4 * time.Second,
+				HandshakeTimeout:     time.Second,
+				NodeCreationDelay:    2 * time.Millisecond,
+				PingInterval:         3 * time.Second,
+				PingJitter:           4 * time.Second,
+				ReconnectionInterval: 1 * time.Second,
+				ReconnectionJitter:   2 * time.Second,
 			},
 			Nodes: []config.Node{
 				{
@@ -289,10 +301,12 @@ nodes:
 				},
 			},
 			Defaults: config.Defaults{
-				HandshakeTimeout:  1 * time.Second,
-				NodeCreationDelay: 2 * time.Millisecond,
-				PingInterval:      3 * time.Second,
-				PingJitter:        4 * time.Second,
+				HandshakeTimeout:     1 * time.Second,
+				NodeCreationDelay:    2 * time.Millisecond,
+				PingInterval:         3 * time.Second,
+				PingJitter:           4 * time.Second,
+				ReconnectionInterval: 1 * time.Second,
+				ReconnectionJitter:   2 * time.Second,
 			},
 			Nodes: []config.Node{
 				{

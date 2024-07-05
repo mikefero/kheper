@@ -26,6 +26,8 @@ const (
 	defaultNodeCreationDelay       = 20 * time.Millisecond
 	defaultPingInterval            = 15 * time.Second
 	defaultPingJitter              = 5 * time.Second
+	defaultReconnectionInterval    = 10 * time.Second
+	defaultReconnectionJitter      = 5 * time.Second
 	defaultServerPort              = 5000
 	defaultServerReadTimeout       = 15 * time.Second
 	defaultServerReadHeaderTimeout = 15 * time.Second
@@ -62,6 +64,11 @@ type Defaults struct {
 	PingInterval time.Duration `yaml:"ping_interval" mapstructure:"ping_interval"`
 	// PingJitter is the jitter to apply to the ping interval.
 	PingJitter time.Duration `yaml:"ping_jitter" mapstructure:"ping_jitter"`
+	// ReconnectionInterval is the interval at which the node should attempt to
+	// reconnect to the control plane.
+	ReconnectionInterval time.Duration `yaml:"reconnection_interval" mapstructure:"reconnection_interval"`
+	// ReconnectionJitter is the jitter to apply to the reconnection interval.
+	ReconnectionJitter time.Duration `yaml:"reconnection_jitter" mapstructure:"reconnection_jitter"`
 }
 
 // Node is the configuration for the connection and mock nodes to instantiate
@@ -129,6 +136,8 @@ func NewConfig() (*Config, error) {
 	viper.SetDefault("defaults.node_creation_delay", defaultNodeCreationDelay)
 	viper.SetDefault("defaults.ping_interval", defaultPingInterval)
 	viper.SetDefault("defaults.ping_jitter", defaultPingJitter)
+	viper.SetDefault("defaults.reconnection_interval", defaultReconnectionInterval)
+	viper.SetDefault("defaults.reconnection_jitter", defaultReconnectionJitter)
 
 	// Node defaults
 	viper.SetDefault("nodes.hostname", defaultNodeHostname)
