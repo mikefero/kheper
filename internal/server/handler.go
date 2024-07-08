@@ -92,12 +92,16 @@ func (h *handler) GetHost(w http.ResponseWriter, r *http.Request, host api.HostP
 			h.internalServerError(w, r, err)
 			return
 		}
+		cipherSuite := node.CipherSuite
 		hostname := node.Hostname
+		tlsVersion := node.TLSVersion
 		version := node.Version
 		hostNodesResponse = append(hostNodesResponse, api.HostNode{
-			Id:       &id,
-			Hostname: &hostname,
-			Version:  &version,
+			Id:          &id,
+			CipherSuite: &cipherSuite,
+			Hostname:    &hostname,
+			TlsVersion:  &tlsVersion,
+			Version:     &version,
 		})
 	}
 
@@ -146,10 +150,12 @@ func (h *handler) GetHostNodeId(w http.ResponseWriter, r *http.Request, host api
 
 	// Create the node response
 	nodeResponse := api.Node{
-		Hostname: &node.Hostname,
-		Id:       &nodeId,
-		Payload:  &node.Payload,
-		Version:  &node.Version,
+		Id:          &nodeId,
+		CipherSuite: &node.CipherSuite,
+		Hostname:    &node.Hostname,
+		Payload:     &node.Payload,
+		TlsVersion:  &node.TLSVersion,
+		Version:     &node.Version,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

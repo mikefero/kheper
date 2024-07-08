@@ -21,8 +21,19 @@ type Host = string
 
 // HostNode defines model for HostNode.
 type HostNode struct {
-	Hostname *string             `json:"hostname,omitempty"`
-	Id       *openapi_types.UUID `json:"id,omitempty"`
+	// CipherSuite Cipher suite is the TLS cipher suite used when establishing a
+	// connection to the control plane.
+	CipherSuite *string `json:"cipher_suite,omitempty"`
+
+	// Hostname Hostname is the RFC 1123 hostname of the node.
+	Hostname *string `json:"hostname,omitempty"`
+
+	// Id The node ID
+	Id *openapi_types.UUID `json:"id,omitempty"`
+
+	// TlsVersion TLS version is the TLS version used when establishing a connection
+	// to the control plane.
+	TlsVersion *string `json:"tls_version,omitempty"`
 
 	// Version Version is the Kong Gateway semantic version of the node. This
 	// version can be represented as 3 or 4 integers separated by dots.
@@ -31,11 +42,22 @@ type HostNode struct {
 
 // Node defines model for Node.
 type Node struct {
-	Hostname *string             `json:"hostname,omitempty"`
-	Id       *openapi_types.UUID `json:"id,omitempty"`
+	// CipherSuite Cipher suite is the TLS cipher suite used when establishing a
+	// connection to the control plane.
+	CipherSuite *string `json:"cipher_suite,omitempty"`
+
+	// Hostname Hostname is the RFC 1123 hostname of the node.
+	Hostname *string `json:"hostname,omitempty"`
+
+	// Id The node ID
+	Id *openapi_types.UUID `json:"id,omitempty"`
 
 	// Payload The entire payload sent from the control plane.
 	Payload *map[string]interface{} `json:"payload,omitempty"`
+
+	// TlsVersion TLS version is the TLS version used when establishing a connection
+	// to the control plane.
+	TlsVersion *string `json:"tls_version,omitempty"`
 
 	// Version Version is the Kong Gateway semantic version of the node. This
 	// version can be represented as 3 or 4 integers separated by dots.

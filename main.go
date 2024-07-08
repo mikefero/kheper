@@ -29,6 +29,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/kong/semver/v4"
 	"github.com/mikefero/kheper/internal/config"
+	"github.com/mikefero/kheper/internal/utils"
 	"github.com/mikefero/kheper/node"
 	"go.uber.org/zap"
 )
@@ -105,6 +106,29 @@ func main() {
 			panic(fmt.Sprintf("unable to generate X509 key pair: %v", err))
 		}
 
+		// Validate the cipher suite and TLS version
+		var cipherSuite uint16
+		var tlsVersion uint16
+		if len(n.Connection.CipherSuite) > 0 {
+			cipherSuite, err = utils.CipherSuite(n.Connection.CipherSuite)
+			if err != nil {
+				panic(fmt.Sprintf("invalid cipher suite: %v", err))
+			}
+		}
+		if len(n.Connection.TLSVersion) > 0 {
+			tlsVersion, err = utils.TLSVersion(n.Connection.TLSVersion)
+			if err != nil {
+				panic(fmt.Sprintf("invalid TLS version: %v", err))
+			}
+		}
+		// Ensure cipher suite is supported by TLS v1.0 - v1.2
+		if tlsVersion != tls.VersionTLS13 &&
+			cipherSuite != 0 &&
+			!utils.IsCipherSuiteValid(cipherSuite, tlsVersion) {
+			panic(fmt.Sprintf("cipher suite %s is not supported by TLS version %s",
+				n.Connection.CipherSuite, n.Connection.TLSVersion))
+		}
+
 		// Create the node instances in a goroutine
 		instancesCreateWG.Add(1)
 		go func() {
@@ -155,6 +179,8 @@ func main() {
 						Protocol:            protocol,
 						Host:                n.Connection.Host,
 						Port:                n.Connection.Port,
+						CipherSuite:         cipherSuite,
+						TLSVersion:          tlsVersion,
 						Certificate:         certificate,
 						HandshakeTimeout:    config.Defaults.HandshakeTimeout,
 						PingInterval:        config.Defaults.PingInterval,
