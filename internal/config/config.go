@@ -103,6 +103,12 @@ type Connection struct {
 	Port int `yaml:"port" mapstructure:"port"`
 	// Protocol is the protocol to use to communicate with the control plane.
 	Protocol string `yaml:"protocol" mapstructure:"protocol"`
+	// CipherSuite is the TLS cipher suite to use when connecting to the control
+	// plane.
+	CipherSuite string `yaml:"cipher_suite" mapstructure:"cipher_suite"`
+	// TLSVersion is the TLS cipher version to use when connecting to the control
+	// plane.
+	TLSVersion string `yaml:"tls_version" mapstructure:"tls_version"`
 	// Certificate is the TLS certificate to use when connecting to the control
 	// plane.
 	Certificate string `yaml:"certificate" mapstructure:"certificate"`

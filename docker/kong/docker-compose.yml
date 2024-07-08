@@ -55,6 +55,7 @@ services:
       KONG_PG_USER: kong
       KONG_ROLE: control_plane
       KONG_ROUTER_FLAVOR: expressions
+      KONG_SSL_CIPHER_SUITE: old
     ports:
       - "8001:8001"
       - "8005:8005"

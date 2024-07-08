@@ -67,6 +67,11 @@ type Opts struct {
 	// Certificate is the TLS certificate to use when connecting to the control
 	// plane.
 	Certificate tls.Certificate
+	// CipherSuite is the TLS cipher suite to use when connecting to the control
+	// plane.
+	CipherSuite uint16
+	// TLSVersion is the TLS version to use when connecting to the control plane.
+	TLSVersion uint16
 
 	// ID is the unique ID of the node.
 	ID uuid.UUID
@@ -225,14 +230,22 @@ func NewNode(opts Opts) (*Node, error) {
 	serverURL.Path = path
 
 	// Create the WebSocket client and associate with the node
+	tlsConfig := &tls.Config{
+		InsecureSkipVerify: true, //nolint: gosec
+		Certificates:       []tls.Certificate{opts.Certificate},
+	}
+	if opts.CipherSuite != 0 {
+		tlsConfig.CipherSuites = []uint16{opts.CipherSuite}
+	}
+	if opts.TLSVersion != 0 {
+		tlsConfig.MinVersion = opts.TLSVersion
+		tlsConfig.MaxVersion = opts.TLSVersion
+	}
 	client, err := ankh.NewWebSocketClient(ankh.WebSocketClientOpts{
 		Handler:          handler,
 		HandShakeTimeout: opts.HandshakeTimeout,
 		ServerURL:        serverURL,
-		TLSConfig: &tls.Config{
-			InsecureSkipVerify: true, //nolint: gosec
-			Certificates:       []tls.Certificate{opts.Certificate},
-		},
+		TLSConfig:        tlsConfig,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create WebSocket client: %w", err)

@@ -51,7 +51,7 @@ the configuration options available:
 ##### Defaults
 
 | YAML Key | Environment Variable | Description |
-|----------|----------------------|-------------|
+|---|---|---|
 | `defaults.handshake_timeout` | `KHEPER_DEFAULTS_HANDSHAKE_TIMEOUT` | The amount of time allowed to complete the WebSocket handshake. (default: **15s**) |
 | `defaults.node_creation_delay` | `KHEPER_DEFAULTS_NODE_CREATION_DELAY` | The amount of time to wait before creating the next node. (default: **20ms**) |
 | `defaults.ping_interval` | `KHEPER_DEFAULTS_PING_INTERVAL` | The interval at which the node should ping the control plane. This interval must be greater than 0. (default: **15s**) |
@@ -62,7 +62,7 @@ the configuration options available:
 ##### Nodes
 
 | YAML Key | Environment Variable | Description |
-|----------|----------------------|-------------|
+|---|---|---|
 | `nodes.instances` | `KHEPER_NODES_INSTANCES` | The number of node instances to create. (default: 1) |
 | `nodes.hostname` | `KHEPER_NODES_HOSTNAME` | The RFC 1123 hostname of the node. This can be a `sequential` hostname or a specific hostname. when `sequential` is specified, a sequential hostname will be generated starting with `00000000-0000-4000-8000-000000000001` and incrementing by 1 hexadecimal digit for each node. (default: **sequential**) |
 | `nodes.id` | `KHEPER_NODES_ID` | The unique ID of the node. This can be a `sequential`, `unique`, or a specific UUID. When `sequential` is specified, a sequential UUID will be generated starting with `00000000-0000-4000-8000-000000000001` and incrementing by 1 hexadecimal digit for each node. When `unique` is specified, a unique UUID will be generated. (default: **sequential**) |
@@ -71,22 +71,77 @@ the configuration options available:
 ###### Connection
 
 | YAML Key | Environment Variable | Description |
-|----------|----------------------|-------------|
+|---|---|---|
 | `nodes.connection.host` | `KHEPER_NODES_CONNECTION_HOST` | The RFC 1123 IP address or hostname of the control plane to connect to. |
 | `nodes.connection.port` | `KHEPER_NODES_CONNECTION_PORT` | The port of the control plane to connect to (range 1-65535). |
+| `nodes.connection.protocol` | `KHEPER_NODES_CONNECTION_PROTOCOL` | The protocol to use to communicate with the control plane. Supported values are 'standard' and 'jsonrpc'. (default: **standard**) |
+| `nodes.connection.cipher_suite` | `KHEPER_NODES_CONNECTION_CIPHER_SUITE` | The OpenSSL or TLS cipher suite to use when connecting to the control plane. If not specified, the default cipher suite will be used. |
+| `nodes.connection.tls_version` | `KHEPER_NODES_CONNECTION_TLS_VERSION` | The TLS version to use when connecting to the control plane. If not specified, TLS v1.3 will be used. |
 | `nodes.connection.certificate` | `KHEPER_NODES_CONNECTION_CERTIFICATE` | The TLS certificate in PEM format to use when connecting to the control plane. |
 | `nodes.connection.key` | `KHEPER_NODES_CONNECTION_KEY` | The TLS key in PEM format to use when connecting to the control plane. |
-| `nodes.connection.protocol` | `KHEPER_NODES_CONNECTION_PROTOCOL` | The protocol to use to communicate with the control plane. Supported values are 'standard' and 'jsonrpc'. (default: **standard**) |
 
 ###### Kheper Admin API Server
 
 | YAML Key | Environment Variable | Description |
-|----------|----------------------|-------------|
+|---|---|---|
 | `server.port` | `KHEPER_SERVER_PORT` | The port to run the API server on. (default: **5000**) |
 | `server.timeouts.read` | `KHEPER_SERVER_TIMEOUTS_READ` | The timeout for reading the request body. (default: **15s**) |
 | `server.timeouts.read_header` | `KHEPER_SERVER_TIMEOUTS_READ_HEADER` | The timeout for reading the headers. (default: **15s**) |
 | `server.timeouts.write` | `KHEPER_SERVER_TIMEOUTS_WRITE` | The timeout for writing the response. (default: **15s**) |
 
+#### Cipher Suites
+
+The Kheper application allows configuring various TLS cipher suites to ensure
+secure communication. The cipher suites can be specified using either the
+OpenSSL or TLS enumeration. Below is a table listing the supported cipher suites
+and their corresponding identifiers.
+
+For more details on OpenSSL cipher suites, you can refer to the
+[Kong Gateway constants]. The mapping between OpenSSL cipher suites and their
+TLS counterparts were taken from the [OpenSSL documentation].
+
+##### Supported TLS Version
+
+The Kheper application supports TLS versions 1.0 through 1.3. When configuring
+the application, it is important to note the following:
+
+- **TLS v1.0, TLS v1.1, and TLS v1.2**: Clients can specify the desired cipher
+  suite.
+- **TLS v1.3**: The cipher suites are predefined and cannot be specified by the
+  client. This version uses a fixed set of cipher suites that are considered
+  secure and efficient. As a result, attempting to configure specific cipher
+  suite when using TLS v1.3 will not have any effect.
+
+##### Supported Cipher Suites
+
+| OpenSSL Identifier | TLS Identifier | Kong Gateway SSL Cipher Suite |
+|---|---|---|
+| ECDHE-RSA-AES128-GCM-SHA256 | TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 | intermediate |
+| ECDHE-RSA-AES256-GCM-SHA384 | TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 | intermediate |
+| ECDHE-RSA-CHACHA20-POLY1305 | TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256 | intermediate |
+| ECDHE-ECDSA-AES128-GCM-SHA256 | TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 | intermediate |
+| ECDHE-ECDSA-AES256-GCM-SHA384 | TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384 | intermediate |
+| ECDHE-ECDSA-CHACHA20-POLY1305 | TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256 | intermediate |
+| ECDHE-ECDSA-AES128-SHA256 | TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256 | old |
+| ECDHE-RSA-AES128-SHA256 | TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256 | old |
+| ECDHE-RSA-AES128-SHA | TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA | old |
+| ECDHE-RSA-AES256-SHA | TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA | old |
+| ECDHE-ECDSA-AES128-SHA | TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA | old |
+| ECDHE-ECDSA-AES256-SHA | TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA | old |
+| AES128-GCM-SHA256 | TLS_RSA_WITH_AES_128_GCM_SHA256 | old |
+| AES256-GCM-SHA384 | TLS_RSA_WITH_AES_256_GCM_SHA384 | old |
+| AES128-SHA256 | TLS_RSA_WITH_AES_128_CBC_SHA256 | old |
+| AES128-SHA | TLS_RSA_WITH_AES_128_CBC_SHA | old |
+| AES256-SHA | TLS_RSA_WITH_AES_256_CBC_SHA | old |
+
+The application currently does not support certain Kong Gateway cipher suites in
+Go, such as `AES256-SHA256`, `DES-CBC3-SHA`, `DHE-RSA-AES128-GCM-SHA256`,
+`DHE-RSA-AES256-GCM-SHA384`, `DHE-RSA-CHACHA20-POLY1305`,
+`DHE-RSA-AES128-SHA256`, `DHE-RSA-AES256-SHA256`. `ECDHE-ECDSA-AES256-SHA384`,
+and `ECDHE-RSA-AES256-SHA384`
+
+For any unsupported cipher suite, an error will be returned indicating the
+unsupported status.
 
 #### Example YAML Configuration
 
@@ -378,7 +433,6 @@ make kong-down
 - Integrate observability metrics and create Grafana dashboards.
 - Set default values in the configuration file for all versions of Kong Gateway.
 - Incorporate a configuration section for both standard and custom plugins.
-- Include cipher suite options in the connection configuration section.
 
 ## License
 
@@ -388,4 +442,6 @@ Kheper is licensed under the Apache License, Version 2.0. See the
 [cluster.crt]: ./docker/kong/cluster.crt
 [cluster.key]: ./docker/kong/cluster.key
 [download and install Go from the official website]: https://golang.org/dl/
+[Kong Gateway constants]: https://github.com/Kong/kong/blob/master/kong/conf_loader/constants.lua#L14
 [LICENSE]: LICENSE
+[OpenSSL documentation]: https://www.openssl.org/docs/man1.1.1/man1/ciphers.html

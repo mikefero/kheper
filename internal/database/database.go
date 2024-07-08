@@ -40,6 +40,9 @@ type Database struct {
 // Node is the definition of a node for the database. It contains information
 // about the node and the payload configuration sent from the control plane.
 type Node struct {
+	// CipherSuite is the TLS cipher suite used when establishing a connection to
+	// the control plane.
+	CipherSuite string
 	// ControlPlaneHost is the RFC 1123 IP address or hostname of the control
 	// plane connected to.
 	ControlPlaneHost string
@@ -49,6 +52,9 @@ type Node struct {
 	ID string
 	// Payload is the payload sent from the control plane.
 	Payload map[string]interface{}
+	// TLSVersion is the TLS version used when establishing a connection to the
+	// control plane.
+	TLSVersion string
 	// Version is the Kong Gateway semantic version of the node. This version
 	// can be represented as 3 or 4 integers separated by dots (e.g. 1.2.3 or
 	// 1.2.3.4).

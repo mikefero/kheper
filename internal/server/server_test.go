@@ -250,10 +250,12 @@ func TestServer(t *testing.T) {
 		t.Run("verify a single node is available", func(t *testing.T) {
 			id := uuid.New()
 			node := database.Node{
+				CipherSuite:      "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
 				ControlPlaneHost: "localhost",
 				Hostname:         "kheper.local",
 				ID:               id.String(),
 				Payload:          map[string]interface{}{"is_valid": true},
+				TLSVersion:       "TLSv1.3",
 				Version:          "1.2.3",
 			}
 			err := db.SetNode(node)
@@ -262,9 +264,11 @@ func TestServer(t *testing.T) {
 
 			expected := api.HostNodesResponse{
 				{
-					Id:       &id,
-					Hostname: &node.Hostname,
-					Version:  &node.Version,
+					CipherSuite: &node.CipherSuite,
+					Hostname:    &node.Hostname,
+					Id:          &id,
+					TlsVersion:  &node.TLSVersion,
+					Version:     &node.Version,
 				},
 			}
 			client.GET("/localhost").
@@ -279,17 +283,21 @@ func TestServer(t *testing.T) {
 			node1ID := uuid.New()
 			node2ID := uuid.New()
 			node1 := database.Node{
+				CipherSuite:      "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
 				ControlPlaneHost: "localhost",
 				Hostname:         "kheper.local",
 				ID:               node1ID.String(),
 				Payload:          map[string]interface{}{"is_valid": true},
+				TLSVersion:       "TLSv1.3",
 				Version:          "1.2.3",
 			}
 			node2 := database.Node{
+				CipherSuite:      "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
 				ControlPlaneHost: "localhost",
 				Hostname:         "kheper.local",
 				ID:               node2ID.String(),
 				Payload:          map[string]interface{}{"is_valid": true},
+				TLSVersion:       "TLSv1.3",
 				Version:          "1.2.3.1",
 			}
 			err := db.SetNode(node1)
@@ -301,14 +309,18 @@ func TestServer(t *testing.T) {
 
 			expected := api.HostNodesResponse{
 				{
-					Id:       &node1ID,
-					Hostname: &node1.Hostname,
-					Version:  &node1.Version,
+					CipherSuite: &node1.CipherSuite,
+					Hostname:    &node1.Hostname,
+					Id:          &node1ID,
+					TlsVersion:  &node1.TLSVersion,
+					Version:     &node1.Version,
 				},
 				{
-					Id:       &node2ID,
-					Hostname: &node2.Hostname,
-					Version:  &node2.Version,
+					CipherSuite: &node2.CipherSuite,
+					Hostname:    &node2.Hostname,
+					Id:          &node2ID,
+					TlsVersion:  &node2.TLSVersion,
+					Version:     &node2.Version,
 				},
 			}
 			client.GET("/localhost").
@@ -323,17 +335,21 @@ func TestServer(t *testing.T) {
 			node1ID := uuid.New()
 			node2ID := uuid.New()
 			node1 := database.Node{
+				CipherSuite:      "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
 				ControlPlaneHost: "localhost",
 				Hostname:         "kheper.local",
 				ID:               node1ID.String(),
 				Payload:          map[string]interface{}{"is_valid": true},
+				TLSVersion:       "TLSv1.3",
 				Version:          "1.2.3",
 			}
 			node2 := database.Node{
+				CipherSuite:      "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
 				ControlPlaneHost: "kheper.example.com",
 				Hostname:         "kheper.local",
 				ID:               node2ID.String(),
 				Payload:          map[string]interface{}{"is_valid": true},
+				TLSVersion:       "TLSv1.3",
 				Version:          "1.2.3.1",
 			}
 			err := db.SetNode(node1)
@@ -345,9 +361,11 @@ func TestServer(t *testing.T) {
 
 			expectedNode1 := api.HostNodesResponse{
 				{
-					Id:       &node1ID,
-					Hostname: &node1.Hostname,
-					Version:  &node1.Version,
+					CipherSuite: &node1.CipherSuite,
+					Hostname:    &node1.Hostname,
+					Id:          &node1ID,
+					TlsVersion:  &node1.TLSVersion,
+					Version:     &node1.Version,
 				},
 			}
 			client.GET("/localhost").
@@ -358,9 +376,11 @@ func TestServer(t *testing.T) {
 				IsEqual(expectedNode1)
 			expectedNode2 := api.HostNodesResponse{
 				{
-					Id:       &node2ID,
-					Hostname: &node2.Hostname,
-					Version:  &node2.Version,
+					CipherSuite: &node2.CipherSuite,
+					Hostname:    &node2.Hostname,
+					Id:          &node2ID,
+					TlsVersion:  &node2.TLSVersion,
+					Version:     &node2.Version,
 				},
 			}
 			client.GET("/kheper.example.com").
@@ -374,10 +394,12 @@ func TestServer(t *testing.T) {
 		t.Run("verify a node can be retrieved", func(t *testing.T) {
 			id := uuid.New()
 			node := database.Node{
+				CipherSuite:      "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
 				ControlPlaneHost: "localhost",
 				Hostname:         "kheper.local",
 				ID:               id.String(),
 				Payload:          map[string]interface{}{"is_valid": true},
+				TLSVersion:       "TLSv1.3",
 				Version:          "1.2.3",
 			}
 			err := db.SetNode(node)
@@ -385,10 +407,12 @@ func TestServer(t *testing.T) {
 			defer db.DeleteNode("localhost", id)
 
 			expected := api.Node{
-				Hostname: &node.Hostname,
-				Id:       &id,
-				Payload:  &node.Payload,
-				Version:  &node.Version,
+				CipherSuite: &node.CipherSuite,
+				Hostname:    &node.Hostname,
+				Id:          &id,
+				Payload:     &node.Payload,
+				TlsVersion:  &node.TLSVersion,
+				Version:     &node.Version,
 			}
 			client.GET("/localhost/{id}", id).
 				Expect().
@@ -402,17 +426,21 @@ func TestServer(t *testing.T) {
 			node1ID := uuid.New()
 			node2ID := uuid.New()
 			node1 := database.Node{
+				CipherSuite:      "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
 				ControlPlaneHost: "localhost",
 				Hostname:         "kheper.local",
 				ID:               node1ID.String(),
 				Payload:          map[string]interface{}{"is_valid": true},
+				TLSVersion:       "TLSv1.3",
 				Version:          "1.2.3",
 			}
 			node2 := database.Node{
+				CipherSuite:      "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
 				ControlPlaneHost: "localhost",
 				Hostname:         "kheper.local",
 				ID:               node2ID.String(),
 				Payload:          map[string]interface{}{"is_valid": true},
+				TLSVersion:       "TLSv1.3",
 				Version:          "1.2.3.1",
 			}
 			err := db.SetNode(node1)
@@ -423,10 +451,12 @@ func TestServer(t *testing.T) {
 			defer db.DeleteNode("localhost", node2ID)
 
 			expected := api.Node{
-				Hostname: &node1.Hostname,
-				Id:       &node1ID,
-				Payload:  &node1.Payload,
-				Version:  &node1.Version,
+				CipherSuite: &node1.CipherSuite,
+				Hostname:    &node1.Hostname,
+				Id:          &node1ID,
+				Payload:     &node1.Payload,
+				TlsVersion:  &node1.TLSVersion,
+				Version:     &node1.Version,
 			}
 			client.GET("/localhost/{id}", node1ID).
 				Expect().
@@ -435,10 +465,12 @@ func TestServer(t *testing.T) {
 				Object().
 				IsEqual(expected)
 			expected = api.Node{
-				Hostname: &node2.Hostname,
-				Id:       &node2ID,
-				Payload:  &node2.Payload,
-				Version:  &node2.Version,
+				CipherSuite: &node2.CipherSuite,
+				Hostname:    &node2.Hostname,
+				Id:          &node2ID,
+				Payload:     &node2.Payload,
+				TlsVersion:  &node2.TLSVersion,
+				Version:     &node2.Version,
 			}
 			client.GET("/localhost/{id}", node2ID).
 				Expect().
@@ -452,17 +484,21 @@ func TestServer(t *testing.T) {
 			node1ID := uuid.New()
 			node2ID := uuid.New()
 			node1 := database.Node{
+				CipherSuite:      "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
 				ControlPlaneHost: "localhost",
 				Hostname:         "kheper.local",
 				ID:               node1ID.String(),
 				Payload:          map[string]interface{}{"is_valid": true},
+				TLSVersion:       "TLSv1.3",
 				Version:          "1.2.3",
 			}
 			node2 := database.Node{
+				CipherSuite:      "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
 				ControlPlaneHost: "kheper.example.com",
 				Hostname:         "kheper.local",
 				ID:               node2ID.String(),
 				Payload:          map[string]interface{}{"is_valid": true},
+				TLSVersion:       "TLSv1.3",
 				Version:          "1.2.3.1",
 			}
 			err := db.SetNode(node1)
@@ -473,10 +509,12 @@ func TestServer(t *testing.T) {
 			defer db.DeleteNode("kheper.example.com", node2ID)
 
 			expectedNode1 := api.Node{
-				Hostname: &node1.Hostname,
-				Id:       &node1ID,
-				Payload:  &node1.Payload,
-				Version:  &node1.Version,
+				CipherSuite: &node1.CipherSuite,
+				Hostname:    &node1.Hostname,
+				Id:          &node1ID,
+				Payload:     &node1.Payload,
+				TlsVersion:  &node1.TLSVersion,
+				Version:     &node1.Version,
 			}
 			client.GET("/localhost/{id}", node1ID).
 				Expect().
@@ -485,10 +523,12 @@ func TestServer(t *testing.T) {
 				Object().
 				IsEqual(expectedNode1)
 			expectedNode2 := api.Node{
-				Hostname: &node2.Hostname,
-				Id:       &node2ID,
-				Payload:  &node2.Payload,
-				Version:  &node2.Version,
+				CipherSuite: &node2.CipherSuite,
+				Hostname:    &node2.Hostname,
+				Id:          &node2ID,
+				Payload:     &node2.Payload,
+				TlsVersion:  &node2.TLSVersion,
+				Version:     &node2.Version,
 			}
 			client.GET("/kheper.example.com/{id}", node2ID).
 				Expect().
@@ -501,10 +541,12 @@ func TestServer(t *testing.T) {
 		t.Run("verify nodes is not found when node ID is not available", func(t *testing.T) {
 			id := uuid.New()
 			node := database.Node{
+				CipherSuite:      "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
 				ControlPlaneHost: "localhost",
 				Hostname:         "kheper.local",
 				ID:               id.String(),
 				Payload:          map[string]interface{}{"is_valid": true},
+				TLSVersion:       "TLSv1.3",
 				Version:          "1.2.3",
 			}
 			err := db.SetNode(node)
@@ -524,10 +566,12 @@ func TestServer(t *testing.T) {
 		t.Run("verify node is not found for resource when node is not valid", func(t *testing.T) {
 			id := uuid.New()
 			node := database.Node{
+				CipherSuite:      "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
 				ControlPlaneHost: "localhost",
 				Hostname:         "kheper.local",
 				ID:               id.String(),
 				Payload:          map[string]interface{}{"is_valid": true},
+				TLSVersion:       "TLSv1.3",
 				Version:          "1.2.3",
 			}
 			err := db.SetNode(node)
@@ -547,10 +591,12 @@ func TestServer(t *testing.T) {
 		t.Run("verify internal server error for resource config_table is not available", func(t *testing.T) {
 			id := uuid.New()
 			node := database.Node{
+				CipherSuite:      "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
 				ControlPlaneHost: "localhost",
 				Hostname:         "kheper.local",
 				ID:               id.String(),
 				Payload:          map[string]interface{}{"is_valid": true},
+				TLSVersion:       "TLSv1.3",
 				Version:          "1.2.3",
 			}
 			err := db.SetNode(node)
@@ -572,6 +618,7 @@ func TestServer(t *testing.T) {
 		t.Run("verify resource is not found for when resource is not available", func(t *testing.T) {
 			id := uuid.New()
 			node := database.Node{
+				CipherSuite:      "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
 				ControlPlaneHost: "localhost",
 				Hostname:         "kheper.local",
 				ID:               id.String(),
@@ -580,7 +627,8 @@ func TestServer(t *testing.T) {
 						"stuff": map[string]interface{}{},
 					},
 				},
-				Version: "1.2.3",
+				TLSVersion: "TLSv1.3",
+				Version:    "1.2.3",
 			}
 			err := db.SetNode(node)
 			require.NoError(t, err)
@@ -599,13 +647,15 @@ func TestServer(t *testing.T) {
 		t.Run("verify internal server error for resource when config_table is not valid map[string]interface{}", func(t *testing.T) {
 			id := uuid.New()
 			node := database.Node{
+				CipherSuite:      "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
 				ControlPlaneHost: "localhost",
 				Hostname:         "kheper.local",
 				ID:               id.String(),
 				Payload: map[string]interface{}{
 					"config_table": "invalid",
 				},
-				Version: "1.2.3",
+				TLSVersion: "TLSv1.3",
+				Version:    "1.2.3",
 			}
 			err := db.SetNode(node)
 			require.NoError(t, err)
@@ -626,6 +676,7 @@ func TestServer(t *testing.T) {
 		t.Run("verify internal server error for resource when resources is not valid []interface{}", func(t *testing.T) {
 			id := uuid.New()
 			node := database.Node{
+				CipherSuite:      "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
 				ControlPlaneHost: "localhost",
 				Hostname:         "kheper.local",
 				ID:               id.String(),
@@ -634,7 +685,8 @@ func TestServer(t *testing.T) {
 						"services": "invalid",
 					},
 				},
-				Version: "1.2.3",
+				TLSVersion: "TLSv1.3",
+				Version:    "1.2.3",
 			}
 			err := db.SetNode(node)
 			require.NoError(t, err)
@@ -655,6 +707,7 @@ func TestServer(t *testing.T) {
 		t.Run("verify internal server error for resource when resource is not valid map[string]interface{}", func(t *testing.T) {
 			id := uuid.New()
 			node := database.Node{
+				CipherSuite:      "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
 				ControlPlaneHost: "localhost",
 				Hostname:         "kheper.local",
 				ID:               id.String(),
@@ -665,7 +718,8 @@ func TestServer(t *testing.T) {
 						},
 					},
 				},
-				Version: "1.2.3",
+				TLSVersion: "TLSv1.3",
+				Version:    "1.2.3",
 			}
 			err := db.SetNode(node)
 			require.NoError(t, err)
@@ -686,6 +740,7 @@ func TestServer(t *testing.T) {
 		t.Run("verify resources are available for a node", func(t *testing.T) {
 			id := uuid.New()
 			node := database.Node{
+				CipherSuite:      "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
 				ControlPlaneHost: "localhost",
 				Hostname:         "kheper.local",
 				ID:               id.String(),
@@ -709,7 +764,8 @@ func TestServer(t *testing.T) {
 						},
 					},
 				},
-				Version: "1.2.3",
+				TLSVersion: "TLSv1.3",
+				Version:    "1.2.3",
 			}
 			err := db.SetNode(node)
 			require.NoError(t, err)

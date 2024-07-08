@@ -17,6 +17,8 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
@@ -48,12 +50,17 @@ import (
 	"go.uber.org/zap"
 )
 
-func generateTestCertificate(t *testing.T) *tls.Config {
+func generateTestCertificates(t *testing.T) *tls.Config {
 	t.Helper()
 
-	priv, err := rsa.GenerateKey(rand.Reader, 1024)
+	privRSA, err := rsa.GenerateKey(rand.Reader, 1024)
 	if err != nil {
-		t.Fatalf("failed to generate private key: %v", err)
+		t.Fatalf("failed to generate RSA private key: %v", err)
+	}
+
+	privECDSA, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("failed to generate ECDSA private key: %v", err)
 	}
 
 	template := x509.Certificate{
@@ -68,20 +75,37 @@ func generateTestCertificate(t *testing.T) *tls.Config {
 		BasicConstraintsValid: true,
 	}
 
-	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
+	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &privRSA.PublicKey, privRSA)
 	if err != nil {
 		t.Fatalf("failed to create certificate: %v", err)
 	}
-
 	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
-	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)})
-	cert, err := tls.X509KeyPair(certPEM, keyPEM)
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(privRSA)})
+	certRSA, err := tls.X509KeyPair(certPEM, keyPEM)
 	if err != nil {
-		t.Fatalf("failed to load key pair: %v", err)
+		t.Fatalf("failed to load RSA key pair: %v", err)
+	}
+
+	derBytes, err = x509.CreateCertificate(rand.Reader, &template, &template, &privECDSA.PublicKey, privECDSA)
+	if err != nil {
+		t.Fatalf("failed to create certificate: %v", err)
+	}
+	certPEM = pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
+	keyBytes, err := x509.MarshalECPrivateKey(privECDSA)
+	if err != nil {
+		t.Fatalf("failed to marshal ECDSA private key: %v", err)
+	}
+	keyPEM = pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyBytes})
+	certECDSA, err := tls.X509KeyPair(certPEM, keyPEM)
+	if err != nil {
+		t.Fatalf("failed to load EC key pair: %v", err)
 	}
 
 	return &tls.Config{
-		Certificates:       []tls.Certificate{cert},
+		Certificates: []tls.Certificate{
+			certRSA,
+			certECDSA,
+		},
 		InsecureSkipVerify: true,
 	}
 }
@@ -207,7 +231,7 @@ func createMockServer(t *testing.T) *mockServer {
 	}
 	standardHandler := Mock[ankh.WebSocketServerEventHandler]()
 	jsonRPCHandler := Mock[ankh.WebSocketServerEventHandler]()
-	tlsConfig := generateTestCertificate(t)
+	tlsConfig := generateTestCertificates(t)
 	opts := ankh.WebSocketServerOpts{
 		Address:             address,
 		IsKeepAlivesEnabled: true,
@@ -521,5 +545,158 @@ func TestNode(t *testing.T) {
 		err = n.Run(context.Background())
 		require.Error(t, err)
 		require.Equal(t, err, node.ErrNodeConnected)
+	})
+
+	t.Run("verify TLS connection states", func(t *testing.T) {
+		t.Setenv("GODEBUG", "tlsrsakex=1") // enable RSA key exchange for testing
+		ecCipherSuites := []uint16{
+			// TLS v1.2 only cipher suites
+			tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+			tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,
+			tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
+
+			// TLS v1.0 - v1.2 cipher suites
+			tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+			tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+		}
+		rsaCipherSuites := []uint16{
+			// TLS v1.2 only cipher suites
+			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
+			tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
+			tls.TLS_RSA_WITH_AES_128_GCM_SHA256,
+			tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_RSA_WITH_AES_128_CBC_SHA256,
+
+			// TLS v1.0 - v1.2 cipher suites
+			tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+			tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+			tls.TLS_RSA_WITH_AES_128_CBC_SHA,
+			tls.TLS_RSA_WITH_AES_256_CBC_SHA,
+		}
+		allCipherSuites := append(ecCipherSuites, rsaCipherSuites...)
+
+		server := func(t *testing.T, address string, tlsConfig *tls.Config, expectedCipherSuite uint16,
+			expectedTLSVersion uint16) {
+			config := &tls.Config{
+				Certificates:       tlsConfig.Certificates,
+				InsecureSkipVerify: true, // nolint: gosec
+				MinVersion:         tls.VersionTLS12,
+				MaxVersion:         tls.VersionTLS13,
+				CipherSuites:       allCipherSuites,
+			}
+			listener, err := tls.Listen("tcp", address, config)
+			require.NoError(t, err)
+			defer listener.Close()
+			conn, err := listener.Accept()
+			require.NoError(t, err)
+			defer conn.Close()
+			tlsConn, ok := conn.(*tls.Conn)
+			require.True(t, ok)
+			require.NoError(t, tlsConn.Handshake())
+
+			// Validate TLS version and cipher suite
+			connState := tlsConn.ConnectionState()
+			require.Equal(t, expectedTLSVersion, connState.Version)
+			// Cipher suite cannot be set for TLS v1.3 by client
+			if expectedTLSVersion != tls.VersionTLS13 {
+				require.Equal(t, expectedCipherSuite, connState.CipherSuite)
+			}
+		}
+
+		t.Run("verify TLS 1.3 is the default protocol", func(t *testing.T) {
+			host, port := findUnusedLocalHostAndPort(t)
+			address := fmt.Sprintf("%s:%d", host, port)
+			tlsConfig := generateTestCertificates(t)
+			wg := sync.WaitGroup{}
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				server(t, address, tlsConfig, 0, tls.VersionTLS13)
+			}()
+			waitFor(t) // Wait for server to become available
+
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				node, err := node.NewNode(node.Opts{
+					Host:             host,
+					Port:             port,
+					Protocol:         node.Standard,
+					Certificate:      tlsConfig.Certificates[0],
+					ID:               uuid.New(),
+					Hostname:         "kheper.local",
+					HandshakeTimeout: 5 * time.Second,
+					PingInterval:     1,
+					PingJitter:       1,
+					Logger:           zap.NewNop(),
+				})
+				require.NoError(t, err)
+				require.NotNil(t, node)
+
+				// Ignore error here since the node will fail to connect as the server
+				// is not a WebSocket server
+				node.Run(ctx)
+			}()
+			wg.Wait()
+		})
+
+		t.Run("verify TLS 1.2 and cipher suites", func(t *testing.T) {
+			for _, cipherSuite := range allCipherSuites {
+				t.Run(tls.CipherSuiteName(cipherSuite), func(t *testing.T) {
+					host, port := findUnusedLocalHostAndPort(t)
+					address := fmt.Sprintf("%s:%d", host, port)
+					tlsConfig := generateTestCertificates(t)
+					wg := sync.WaitGroup{}
+					wg.Add(1)
+					go func() {
+						defer wg.Done()
+						server(t, address, tlsConfig, cipherSuite, tls.VersionTLS12)
+					}()
+					waitFor(t) // Wait for server to become available
+
+					// Ensure elliptical curve is used for ECDSA cipher suites
+					certificate := tlsConfig.Certificates[0]
+					for _, e := range ecCipherSuites {
+						if e == cipherSuite {
+							certificate = tlsConfig.Certificates[1]
+							break
+						}
+					}
+
+					ctx, cancel := context.WithCancel(context.Background())
+					defer cancel()
+					wg.Add(1)
+					go func() {
+						defer wg.Done()
+						node, err := node.NewNode(node.Opts{
+							Host:             host,
+							Port:             port,
+							Protocol:         node.Standard,
+							CipherSuite:      cipherSuite,
+							TLSVersion:       tls.VersionTLS12,
+							Certificate:      certificate,
+							ID:               uuid.New(),
+							Hostname:         "kheper.local",
+							HandshakeTimeout: 5 * time.Second,
+							PingInterval:     1,
+							PingJitter:       1,
+							Logger:           zap.NewNop(),
+						})
+						require.NoError(t, err)
+						require.NotNil(t, node)
+
+						// Ignore error here since the node will fail to connect as the server
+						// is not a WebSocket server
+						node.Run(ctx)
+					}()
+					wg.Wait()
+				})
+			}
+		})
 	})
 }
