@@ -292,12 +292,16 @@ The Kheper Mock Data Plane Node Application provides an Admin API to manage and 
 [
   {
     "id": "123e4567-e89b-12d3-a456-426614174000",
+    "cipher_suite": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
     "hostname": "node1.example-host.com",
+    "tls_version": "TLSv1.2",
     "version": "1.2.3"
   },
   {
     "id": "223e4567-e89b-12d3-a456-426614174001",
+    "cipher_suite": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
     "hostname": "node2.example-host.com",
+    "tls_version": "TLSv1.2",
     "version": "1.2.3.1"
   }
 ]
@@ -314,7 +318,9 @@ The Kheper Mock Data Plane Node Application provides an Admin API to manage and 
 ```json
 {
   "id": "123e4567-e89b-12d3-a456-426614174000",
+  "cipher_suite": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
   "hostname": "node1.example-host.com",
+  "tls_version": "TLSv1.2",
   "version": "1.2.3",
   "payload": {
     "config_hash": "374d97a6cdede7dbe918d7e72c29e6c8",
