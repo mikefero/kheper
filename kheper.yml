@@ -17,7 +17,7 @@ defaults:
 
 # Node configuration for single or multiple control planes
 nodes:
-  - instances: 4
+  - instances: 6
     hostname: sequential
     id: sequential
     versions:
@@ -27,21 +27,29 @@ nodes:
       host: localhost
       port: 8005
       protocol: standard
+      cipher_suites:
+        - ECDHE-ECDSA-AES128-GCM-SHA256
+        - ECDHE-ECDSA-AES256-GCM-SHA384
+        - ECDHE-ECDSA-CHACHA20-POLY1305
+        - ECDHE-ECDSA-AES128-SHA256
+        - ECDHE-ECDSA-AES128-SHA
+        - ECDHE-ECDSA-AES256-SHA
+      tls_version: TLSv1.2
       certificate: |
         -----BEGIN CERTIFICATE-----
-        MIIBgjCCASmgAwIBAgIUSeuxAz6iXgMudd+9QWEu94ntwKswCgYIKoZIzj0EAwIw
-        FjEUMBIGA1UEAwwLZXhhbXBsZS5jb20wIBcNMjQwNjI4MTkzNDAzWhgPMjEyNDA2
-        MDQxOTM0MDNaMBYxFDASBgNVBAMMC2V4YW1wbGUuY29tMFkwEwYHKoZIzj0CAQYI
-        KoZIzj0DAQcDQgAExSkyUUI9kElUOzGwOafVUJzbZJXUxp72kVvc5HuTPGeW+kyc
-        AEu8rGLB4dIRMIJULIpgQatwSnVg4/b4MyWCqKNTMFEwHQYDVR0OBBYEFFJoQYAb
-        JAZNETIVjIWiAR9lfGARMB8GA1UdIwQYMBaAFFJoQYAbJAZNETIVjIWiAR9lfGAR
-        MA8GA1UdEwEB/wQFMAMBAf8wCgYIKoZIzj0EAwIDRwAwRAIgJA1PePfBp9L2ShyB
-        Z2bsZcriyD3RvP0ulp0s5yV8vxECIA04GmJQcEX5Jpp4pLxpBSy2g3ze/i2Vpyyg
-        5Qbe1fj7
+        MIIBkTCCATegAwIBAgIUNafcmtDPirW6BY512Kn4LVm49ggwCgYIKoZIzj0EAwIw
+        HTEbMBkGA1UEAwwSa2hlcGVyLmV4YW1wbGUuY29tMCAXDTI0MDcxNTE1NTExNloY
+        DzIxMjQwNjIxMTU1MTE2WjAdMRswGQYDVQQDDBJraGVwZXIuZXhhbXBsZS5jb20w
+        WTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAARnfTV7waofWrgsN86ueBRl+HuF5+3B
+        WQgRxu0s1XJqvEgTCsMObNo5c87PA9NpmP2t0O2S8mjonJ2VUOE896CPo1MwUTAd
+        BgNVHQ4EFgQU5qSZisQi+Gg5b/W8ianbh9+f1DcwHwYDVR0jBBgwFoAU5qSZisQi
+        +Gg5b/W8ianbh9+f1DcwDwYDVR0TAQH/BAUwAwEB/zAKBggqhkjOPQQDAgNIADBF
+        AiBxcYu26lPkyxqDjas6gAXIuyJLK4IlDkvkRQxU0Ko9zAIhAJF0vuSPLvp+4L/G
+        rrfgvmrE10iZPEm0/Iq2vlF/hZ63
         -----END CERTIFICATE-----
       key: |
         -----BEGIN PRIVATE KEY-----
-        MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgQUiS3CZzgoSfdTG+
-        zAwolAeSTnkw2e//Ic9dRl8GVMmhRANCAATFKTJRQj2QSVQ7MbA5p9VQnNtkldTG
-        nvaRW9zke5M8Z5b6TJwAS7ysYsHh0hEwglQsimBBq3BKdWDj9vgzJYKo
+        MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgc5u/SwkNIuzrCMxr
+        IxFc1FAzG1O4Rfm6lWxrFVrTAvahRANCAARnfTV7waofWrgsN86ueBRl+HuF5+3B
+        WQgRxu0s1XJqvEgTCsMObNo5c87PA9NpmP2t0O2S8mjonJ2VUOE896CP
         -----END PRIVATE KEY-----

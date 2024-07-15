@@ -64,5 +64,5 @@ services:
     sysctls:
       net.ipv6.conf.all.disable_ipv6: "0"
     volumes:
-      - ./cluster.crt:/cluster.crt:ro
-      - ./cluster.key:/cluster.key:ro
+      - ./cluster_ec.crt:/cluster.crt:ro
+      - ./cluster_ec.key:/cluster.key:ro
