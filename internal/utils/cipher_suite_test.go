@@ -181,7 +181,7 @@ func TestCipherSuite(t *testing.T) {
 			t.Run(tls.CipherSuiteName(tt.cipherSuite), func(t *testing.T) {
 				t.Parallel()
 
-				require.Equal(t, tt.expected, utils.IsCipherSuiteValid(tt.cipherSuite, tt.tlsVersion))
+				require.Equal(t, tt.expected, utils.ValidateCipherSuite(tt.cipherSuite, tt.tlsVersion))
 			})
 		}
 	})

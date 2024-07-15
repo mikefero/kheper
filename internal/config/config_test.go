@@ -251,6 +251,8 @@ nodes:
 		t.Setenv("KHEPER_NODES_HOSTNAME", "kheper.local")
 		t.Setenv("KHEPER_NODES_ID", "unique")
 		t.Setenv("KHEPER_NODES_CONNECTION_PROTOCOL", "jsonrpc")
+		t.Setenv("KHEPER_NODES_CONNECTION_CIPHER_SUITES", "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256")
+		t.Setenv("KHEPER_NODES_CONNECTION_TLS_VERSION", "TLS1.2")
 		t.Setenv("KHEPER_NODES_VERSIONS", "3.6.0.0,3.5.0.0")
 		actual, err := config.NewConfig()
 		if err != nil {
@@ -278,6 +280,11 @@ nodes:
 				{
 					Connection: config.Connection{
 						Protocol: "jsonrpc",
+						CipherSuites: []string{
+							"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+							"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+						},
+						TLSVersion: "TLS1.2",
 					},
 					Instances: 5,
 					Hostname:  "kheper.local",
@@ -312,6 +319,11 @@ nodes:
 				{
 					Connection: config.Connection{
 						Protocol: "jsonrpc",
+						CipherSuites: []string{
+							"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+							"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+						},
+						TLSVersion: "TLS1.2",
 					},
 					Instances: 5,
 					Hostname:  "kheper.local",

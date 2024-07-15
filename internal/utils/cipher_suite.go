@@ -153,9 +153,9 @@ func TLSVersion(tlsVersion string) (uint16, error) {
 	}
 }
 
-// IsCipherSuiteValid returns true if the given cipher suite is supported by the
-// given TLS version.
-func IsCipherSuiteValid(cipherSuite uint16, tlsVersion uint16) bool {
+// ValidateCipherSuite returns true if the given cipher suite is supported by
+// the given TLS version.
+func ValidateCipherSuite(cipherSuite uint16, tlsVersion uint16) bool {
 	versions, ok := cipherSuiteToTLSVersion[cipherSuite]
 	if !ok {
 		return false

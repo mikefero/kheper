@@ -103,30 +103,16 @@ func main() {
 		// Generate the X509 key pair to verify valid certificate
 		certificate, err := tls.X509KeyPair([]byte(n.Connection.Certificate), []byte(n.Connection.Key))
 		if err != nil {
-			panic(fmt.Sprintf("unable to generate X509 key pair: %v", err))
+			panic(fmt.Sprintf("unable to parse X509 key pair: %v", err))
 		}
 
-		// Validate the cipher suite and TLS version
-		var cipherSuite uint16
+		// Verify the TLS version is valid
 		var tlsVersion uint16
-		if len(n.Connection.CipherSuite) > 0 {
-			cipherSuite, err = utils.CipherSuite(n.Connection.CipherSuite)
-			if err != nil {
-				panic(fmt.Sprintf("invalid cipher suite: %v", err))
-			}
-		}
 		if len(n.Connection.TLSVersion) > 0 {
 			tlsVersion, err = utils.TLSVersion(n.Connection.TLSVersion)
 			if err != nil {
 				panic(fmt.Sprintf("invalid TLS version: %v", err))
 			}
-		}
-		// Ensure cipher suite is supported by TLS v1.0 - v1.2
-		if tlsVersion != tls.VersionTLS13 &&
-			cipherSuite != 0 &&
-			!utils.IsCipherSuiteValid(cipherSuite, tlsVersion) {
-			panic(fmt.Sprintf("cipher suite %s is not supported by TLS version %s",
-				n.Connection.CipherSuite, n.Connection.TLSVersion))
 		}
 
 		// Create the node instances in a goroutine
@@ -140,7 +126,26 @@ func main() {
 				case <-ctx.Done():
 					return
 				default:
-					// Verify the node version is valid
+					// Verify the cipher suite is valid
+					var cipherSuite uint16
+					if len(n.Connection.CipherSuites) > 0 {
+						// Set the cipher suite using a round-robin strategy
+						cipherSuiteStr := n.Connection.CipherSuites[i%len(n.Connection.CipherSuites)]
+						cipherSuite, err = utils.CipherSuite(cipherSuiteStr)
+						if err != nil {
+							panic(fmt.Sprintf("invalid cipher suite: %v", err))
+						}
+
+						// Ensure cipher suite is supported by TLS v1.0 - v1.2
+						if tlsVersion != tls.VersionTLS13 &&
+							cipherSuite != 0 &&
+							!utils.ValidateCipherSuite(cipherSuite, tlsVersion) {
+							panic(fmt.Sprintf("cipher suite %s is not supported by TLS version %s",
+								n.Connection.CipherSuites, n.Connection.TLSVersion))
+						}
+					}
+
+					// Set the version using a round-robin strategy and verify it is valid
 					versionStr := n.Versions[i%len(n.Versions)]
 					version, err := semver.Parse(versionStr)
 					if err != nil {

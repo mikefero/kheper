@@ -103,9 +103,10 @@ type Connection struct {
 	Port int `yaml:"port" mapstructure:"port"`
 	// Protocol is the protocol to use to communicate with the control plane.
 	Protocol string `yaml:"protocol" mapstructure:"protocol"`
-	// CipherSuite is the TLS cipher suite to use when connecting to the control
-	// plane.
-	CipherSuite string `yaml:"cipher_suite" mapstructure:"cipher_suite"`
+	// CipherSuites is the TLS cipher suite to use when connecting to the control
+	// plane. Each cipher suite in the slice will be "round-robin" across the
+	// nodes based on the number of instances.
+	CipherSuites []string `yaml:"cipher_suites" mapstructure:"cipher_suites"`
 	// TLSVersion is the TLS cipher version to use when connecting to the control
 	// plane.
 	TLSVersion string `yaml:"tls_version" mapstructure:"tls_version"`
@@ -180,6 +181,12 @@ func NewConfig() (*Config, error) {
 	}
 	if err := viper.BindEnv("nodes.connection.key"); err != nil {
 		return nil, fmt.Errorf("unable to bind nodes.connection.key environment variable: %w", err)
+	}
+	if err := viper.BindEnv("nodes.connection.cipher_suites"); err != nil {
+		return nil, fmt.Errorf("unable to bind nodes.connection.cipher_suites environment variable: %w", err)
+	}
+	if err := viper.BindEnv("nodes.connection.tls_version"); err != nil {
+		return nil, fmt.Errorf("unable to bind nodes.connection.tls_version environment variable: %w", err)
 	}
 
 	// Enable automatic environment variable binding

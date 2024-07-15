@@ -75,7 +75,7 @@ the configuration options available:
 | `nodes.connection.host` | `KHEPER_NODES_CONNECTION_HOST` | The RFC 1123 IP address or hostname of the control plane to connect to. |
 | `nodes.connection.port` | `KHEPER_NODES_CONNECTION_PORT` | The port of the control plane to connect to (range 1-65535). |
 | `nodes.connection.protocol` | `KHEPER_NODES_CONNECTION_PROTOCOL` | The protocol to use to communicate with the control plane. Supported values are 'standard' and 'jsonrpc'. (default: **standard**) |
-| `nodes.connection.cipher_suite` | `KHEPER_NODES_CONNECTION_CIPHER_SUITE` | The OpenSSL or TLS cipher suite to use when connecting to the control plane. If not specified, the default cipher suite will be used. |
+| `nodes.connection.cipher_suites` | `KHEPER_NODES_CONNECTION_CIPHER_SUITES` | The OpenSSL or TLS cipher suites to use when connecting to the control plane. Each cipher suite in the slice will be "round-robin" across the nodes based on the number of instances. If not specified, the default cipher suite will be used. |
 | `nodes.connection.tls_version` | `KHEPER_NODES_CONNECTION_TLS_VERSION` | The TLS version to use when connecting to the control plane. If not specified, TLS v1.3 will be used. |
 | `nodes.connection.certificate` | `KHEPER_NODES_CONNECTION_CERTIFICATE` | The TLS certificate in PEM format to use when connecting to the control plane. |
 | `nodes.connection.key` | `KHEPER_NODES_CONNECTION_KEY` | The TLS key in PEM format to use when connecting to the control plane. |
@@ -167,7 +167,7 @@ defaults:
 
 # Node configuration for single or multiple control planes
 nodes:
-  - instances: 4
+  - instances: 6
     hostname: sequential
     id: sequential
     versions:
@@ -177,25 +177,32 @@ nodes:
       host: localhost
       port: 8005
       protocol: standard
+      cipher_suites:
+        - ECDHE-ECDSA-AES128-GCM-SHA256
+        - ECDHE-ECDSA-AES256-GCM-SHA384
+        - ECDHE-ECDSA-CHACHA20-POLY1305
+        - ECDHE-ECDSA-AES128-SHA256
+        - ECDHE-ECDSA-AES128-SHA
+        - ECDHE-ECDSA-AES256-SHA
+      tls_version: TLSv1.2
       certificate: |
         -----BEGIN CERTIFICATE-----
-        MIIBgjCCASmgAwIBAgIUSeuxAz6iXgMudd+9QWEu94ntwKswCgYIKoZIzj0EAwIw
-        FjEUMBIGA1UEAwwLZXhhbXBsZS5jb20wIBcNMjQwNjI4MTkzNDAzWhgPMjEyNDA2
-        MDQxOTM0MDNaMBYxFDASBgNVBAMMC2V4YW1wbGUuY29tMFkwEwYHKoZIzj0CAQYI
-        KoZIzj0DAQcDQgAExSkyUUI9kElUOzGwOafVUJzbZJXUxp72kVvc5HuTPGeW+kyc
-        AEu8rGLB4dIRMIJULIpgQatwSnVg4/b4MyWCqKNTMFEwHQYDVR0OBBYEFFJoQYAb
-        JAZNETIVjIWiAR9lfGARMB8GA1UdIwQYMBaAFFJoQYAbJAZNETIVjIWiAR9lfGAR
-        MA8GA1UdEwEB/wQFMAMBAf8wCgYIKoZIzj0EAwIDRwAwRAIgJA1PePfBp9L2ShyB
-        Z2bsZcriyD3RvP0ulp0s5yV8vxECIA04GmJQcEX5Jpp4pLxpBSy2g3ze/i2Vpyyg
-        5Qbe1fj7
+        MIIBkTCCATegAwIBAgIUNafcmtDPirW6BY512Kn4LVm49ggwCgYIKoZIzj0EAwIw
+        HTEbMBkGA1UEAwwSa2hlcGVyLmV4YW1wbGUuY29tMCAXDTI0MDcxNTE1NTExNloY
+        DzIxMjQwNjIxMTU1MTE2WjAdMRswGQYDVQQDDBJraGVwZXIuZXhhbXBsZS5jb20w
+        WTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAARnfTV7waofWrgsN86ueBRl+HuF5+3B
+        WQgRxu0s1XJqvEgTCsMObNo5c87PA9NpmP2t0O2S8mjonJ2VUOE896CPo1MwUTAd
+        BgNVHQ4EFgQU5qSZisQi+Gg5b/W8ianbh9+f1DcwHwYDVR0jBBgwFoAU5qSZisQi
+        +Gg5b/W8ianbh9+f1DcwDwYDVR0TAQH/BAUwAwEB/zAKBggqhkjOPQQDAgNIADBF
+        AiBxcYu26lPkyxqDjas6gAXIuyJLK4IlDkvkRQxU0Ko9zAIhAJF0vuSPLvp+4L/G
+        rrfgvmrE10iZPEm0/Iq2vlF/hZ63
         -----END CERTIFICATE-----
       key: |
         -----BEGIN PRIVATE KEY-----
-        MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgQUiS3CZzgoSfdTG+
-        zAwolAeSTnkw2e//Ic9dRl8GVMmhRANCAATFKTJRQj2QSVQ7MbA5p9VQnNtkldTG
-        nvaRW9zke5M8Z5b6TJwAS7ysYsHh0hEwglQsimBBq3BKdWDj9vgzJYKo
+        MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgc5u/SwkNIuzrCMxr
+        IxFc1FAzG1O4Rfm6lWxrFVrTAvahRANCAARnfTV7waofWrgsN86ueBRl+HuF5+3B
+        WQgRxu0s1XJqvEgTCsMObNo5c87PA9NpmP2t0O2S8mjonJ2VUOE896CP
         -----END PRIVATE KEY-----
-
 ```
 
 #### Example Environment Variables Configuration
@@ -218,29 +225,31 @@ export KHEPER_DEFAULTS_RECONNECTION_INTERVAL=10s
 export KHEPER_DEFAULTS_RECONNECTION_JITTER=5s
 
 # Nodes
-export KHEPER_NODES_INSTANCES=4
-export KHEPER_NODES_HOSTNAME=kheper.local
-export KHEPER_NODES_ID=unique
+export KHEPER_NODES_INSTANCES=6
+export KHEPER_NODES_HOSTNAME=sequential
+export KHEPER_NODES_ID=sequential
 export KHEPER_NODES_VERSIONS=3.7.1,3.7.0
 export KHEPER_NODES_CONNECTION_HOST=localhost
 export KHEPER_NODES_CONNECTION_PORT=8005
+export KHEPER_NODES_CONNECTION_PROTOCOL=standard
+export KHEPER_NODES_CONNECTION_CIPHER_SUITE="ECDHE-ECDSA-AES128-GCM-SHA256,ECDHE-ECDSA-AES256-GCM-SHA384,ECDHE-ECDSA-CHACHA20-POLY1305,ECDHE-ECDSA-AES128-SHA256,ECDHE-ECDSA-AES128-SHA,ECDHE-ECDSA-AES256-SHA"
+export KHEPER_NODES_CONNECTION_TLS_VERSION=TLSv1.2
 export KHEPER_NODES_CONNECTION_CERTIFICATE="-----BEGIN CERTIFICATE-----
-MIIBgjCCASmgAwIBAgIUSeuxAz6iXgMudd+9QWEu94ntwKswCgYIKoZIzj0EAwIw
-FjEUMBIGA1UEAwwLZXhhbXBsZS5jb20wIBcNMjQwNjI4MTkzNDAzWhgPMjEyNDA2
-MDQxOTM0MDNaMBYxFDASBgNVBAMMC2V4YW1wbGUuY29tMFkwEwYHKoZIzj0CAQYI
-KoZIzj0DAQcDQgAExSkyUUI9kElUOzGwOafVUJzbZJXUxp72kVvc5HuTPGeW+kyc
-AEu8rGLB4dIRMIJULIpgQatwSnVg4/b4MyWCqKNTMFEwHQYDVR0OBBYEFFJoQYAb
-JAZNETIVjIWiAR9lfGARMB8GA1UdIwQYMBaAFFJoQYAbJAZNETIVjIWiAR9lfGAR
-MA8GA1UdEwEB/wQFMAMBAf8wCgYIKoZIzj0EAwIDRwAwRAIgJA1PePfBp9L2ShyB
-Z2bsZcriyD3RvP0ulp0s5yV8vxECIA04GmJQcEX5Jpp4pLxpBSy2g3ze/i2Vpyyg
-5Qbe1fj7
+MIIBkTCCATegAwIBAgIUNafcmtDPirW6BY512Kn4LVm49ggwCgYIKoZIzj0EAwIw
+HTEbMBkGA1UEAwwSa2hlcGVyLmV4YW1wbGUuY29tMCAXDTI0MDcxNTE1NTExNloY
+DzIxMjQwNjIxMTU1MTE2WjAdMRswGQYDVQQDDBJraGVwZXIuZXhhbXBsZS5jb20w
+WTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAARnfTV7waofWrgsN86ueBRl+HuF5+3B
+WQgRxu0s1XJqvEgTCsMObNo5c87PA9NpmP2t0O2S8mjonJ2VUOE896CPo1MwUTAd
+BgNVHQ4EFgQU5qSZisQi+Gg5b/W8ianbh9+f1DcwHwYDVR0jBBgwFoAU5qSZisQi
++Gg5b/W8ianbh9+f1DcwDwYDVR0TAQH/BAUwAwEB/zAKBggqhkjOPQQDAgNIADBF
+AiBxcYu26lPkyxqDjas6gAXIuyJLK4IlDkvkRQxU0Ko9zAIhAJF0vuSPLvp+4L/G
+rrfgvmrE10iZPEm0/Iq2vlF/hZ63
 -----END CERTIFICATE-----"
 export KHEPER_NODES_CONNECTION_KEY="-----BEGIN PRIVATE KEY-----
-MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgQUiS3CZzgoSfdTG+
-zAwolAeSTnkw2e//Ic9dRl8GVMmhRANCAATFKTJRQj2QSVQ7MbA5p9VQnNtkldTG
-nvaRW9zke5M8Z5b6TJwAS7ysYsHh0hEwglQsimBBq3BKdWDj9vgzJYKo
+MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgc5u/SwkNIuzrCMxr
+IxFc1FAzG1O4Rfm6lWxrFVrTAvahRANCAARnfTV7waofWrgsN86ueBRl+HuF5+3B
+WQgRxu0s1XJqvEgTCsMObNo5c87PA9NpmP2t0O2S8mjonJ2VUOE896CP
 -----END PRIVATE KEY-----"
-export KHEPER_NODES_CONNECTION_PROTOCOL=standard
 ```
 
 ### Hostname and ID
@@ -398,17 +407,34 @@ The Kheper Mock Data Plane Node Application provides an Admin API to manage and 
 
 ### Generating a Certificate and Key Pair
 
-Here is an example of how to generate a certificate and key pair:
+Here is an example of how to generate a certificate and key pair using OpenSSL
+for multiple cipher suites:
+
+#### Elliptic Curve Key Pair
 
 ```bash
 openssl req \
   -new \
-  -newkey ec:<(openssl ecparam -name secp256k1) \
-  -keyout cluster.key \
+  -newkey ec:<(openssl ecparam -name prime256v1) \
+  -keyout docker/kong/cluster_ec.key \
   -nodes \
   -x509 \
   -days 36500 \
-  -out cluster.crt \
+  -out docker/kong/cluster_ec.crt \
+  -subj "/CN=kheper.example.com"
+```
+
+#### RSA Key Pair
+
+```bash
+openssl req \
+  -new \
+  -newkey rsa:2048 \
+  -keyout docker/kong/cluster_rsa.key \
+  -nodes \
+  -x509 \
+  -days 36500 \
+  -out docker/kong/cluster_rsa.crt \
   -subj "/CN=kheper.example.com"
 ```
 
