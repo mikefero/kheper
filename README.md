@@ -439,15 +439,17 @@ openssl req \
 ```
 
 This command generates a new self-signed X.509 certificate valid for 100 years
-using an elliptic curve key with the secp256k1 curve. It outputs the private key
-to `cluster.key` and the certificate to `cluster.crt`, with the common name (CN)
-set to `kheper.example.com`. This PEM-encoded certificate and key can be used
-as the `certificate` and `key` values in the YAML configuration along with the
-Kong Gateway control plane `cluster_cert` and `cluster_cert_key` configuration
-fields.
+using an elliptic curve key with the prime256v1 curve. It outputs the private
+key to `cluster_ec.key` and the certificate to `cluster_ec.crt`, with the common
+name (CN) set to `kheper.example.com`. This PEM-encoded certificate and key can
+be used as the `certificate` and `key` values in the YAML configuration along
+with the Kong Gateway control plane `cluster_cert` and `cluster_cert_key`
+configuration fields.
 
-**Note**: A [cluster.crt] and [cluster.key] file are included in the repository
-          for convenience and are used in the yaml configuration file example.
+**Note**: A [cluster_ec.crt] and [cluster_ec.key] file are included in the
+          repository for convenience and are used in the yaml configuration file
+          example. Additionally [cluster_rsa.crt] and [cluster_rsa.key] are
+          included for completeness in order to utilize all cipher suites.
 
 ### Testing With Kong Gateway
 
@@ -471,9 +473,32 @@ make kong-down
 Kheper is licensed under the Apache License, Version 2.0. See the
 [LICENSE](LICENSE) file for more information.
 
-[cluster.crt]: ./docker/kong/cluster.crt
-[cluster.key]: ./docker/kong/cluster.key
+## Acknowledgements
+
+- [Gorilla WebSocket] - A fast, well-tested, and widely used WebSocket library
+  in Go.
+- [golangci-lint] - A fast Go linters runner for Go. It runs linters in
+  parallel, caching their results for much faster runs.
+- [go-memdb] - Golang in-memory database built on immutable radix trees
+- [kin-openapi] - OpenAPI 3.0 (and Swagger v2) implementation for Go (parsing,
+  converting, validation, and more).
+- [mockio] - A mocking framework for Go that helps in creating and using mocks
+  for testing purposes.
+- [viper] - Go configuration with fangs.
+- [zap] - Blazing fast, structured, leveled logging in Go.
+
+[cluster_ec.crt]: ./docker/kong/cluster_ec.crt
+[cluster_ec.key]: ./docker/kong/cluster_ec.key
+[cluster_rsa.crt]: ./docker/kong/cluster_rsa.crt
+[cluster_rsa.key]: ./docker/kong/cluster_rsa.key
 [download and install Go from the official website]: https://golang.org/dl/
+[Gorilla WebSocket]: https://github.com/gorilla/websocket
+[golangci-lint]: https://github.com/golangci/golangci-lint
+[go-memdb]: https://github.com/hashicorp/go-memdb
+[kin-openapi]: https://github.com/getkin/kin-openapi
 [Kong Gateway constants]: https://github.com/Kong/kong/blob/master/kong/conf_loader/constants.lua#L14
 [LICENSE]: LICENSE
+[mockio]: https://github.com/ovechkin-dm/mockio/mock
 [OpenSSL documentation]: https://www.openssl.org/docs/man1.1.1/man1/ciphers.html
+[viper]: https://github.com/spf13/viper
+[zap]: https://github.com/uber-go/zap
