@@ -90,6 +90,8 @@ type Opts struct {
 	// PingJitter is the jitter to apply to the ping interval.
 	PingJitter time.Duration
 
+	// Group is the name of the group to which the node instance belongs.
+	Group *string
 	// ServerConfiguration is the configuration for the API server to run. If
 	// nil, the API server will not be started.
 	ServerConfiguration *config.Server
@@ -118,6 +120,8 @@ type Info struct {
 	// 1.2.3.4).
 	Version semver.Version
 
+	// Group is the name of the group to which the node instance belongs.
+	Group *string
 	// Plugins is a list of plugins that the node supports.
 	Plugins []Plugin `yaml:"plugins"`
 }
@@ -183,18 +187,30 @@ func NewNode(opts Opts) (*Node, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error parsing node info file: %w", err)
 	}
+	info.Group = opts.Group
 	info.Host = opts.Host
 	info.Hostname = opts.Hostname
 	info.ID = opts.ID
 	info.Version = opts.Version
 
 	// Initialize the node logger with the node ID and host
-	nodeLogger := opts.Logger.With(
-		zap.String("host", opts.Host),
-		zap.String("hostname", opts.Hostname),
-		zap.String("id", opts.ID.String()),
-		zap.Any("version", opts.Version),
-	)
+	var nodeLogger *zap.Logger
+	if opts.Group != nil {
+		nodeLogger = opts.Logger.With(
+			zap.Any("group", opts.Group),
+			zap.String("host", opts.Host),
+			zap.String("hostname", opts.Hostname),
+			zap.String("id", opts.ID.String()),
+			zap.Any("version", opts.Version),
+		)
+	} else {
+		nodeLogger = opts.Logger.With(
+			zap.String("host", opts.Host),
+			zap.String("hostname", opts.Hostname),
+			zap.String("id", opts.ID.String()),
+			zap.Any("version", opts.Version),
+		)
+	}
 
 	// Create the appropriate protocol handler, path, and server URL
 	var handler protocolHandler

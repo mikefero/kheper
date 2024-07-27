@@ -16,6 +16,7 @@ package database
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"sync"
 
 	"github.com/google/uuid"
@@ -37,6 +38,15 @@ type Database struct {
 	db *memdb.MemDB
 }
 
+// Hosts is the definition of a host. It contains information about the host and
+// the groups that the host is a member of.
+type Hosts struct {
+	// Hostname is the hostname of the host.
+	Hostname string
+	// Groups is a list of groups that the host is a member of.
+	Groups []string
+}
+
 // Node is the definition of a node for the database. It contains information
 // about the node and the payload configuration sent from the control plane.
 type Node struct {
@@ -46,6 +56,8 @@ type Node struct {
 	// ControlPlaneHost is the RFC 1123 IP address or hostname of the control
 	// plane connected to.
 	ControlPlaneHost string
+	// Group is the name of the group to which the node instance belongs.
+	Group *string
 	// Hostname is the RFC 1123 hostname of the node.
 	Hostname string
 	// ID is the unique ID of the node.
@@ -59,6 +71,46 @@ type Node struct {
 	// can be represented as 3 or 4 integers separated by dots (e.g. 1.2.3 or
 	// 1.2.3.4).
 	Version string
+}
+
+// StringPtrIndex is a custom indexer that can handle nil string pointers.
+type StringPtrIndex struct {
+	// Field is the name of the field to index.
+	Field string
+}
+
+// FromObject implements the memdb.Indexer interface.
+func (s *StringPtrIndex) FromObject(obj interface{}) (bool, []byte, error) {
+	v := reflect.ValueOf(obj)
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+	val := v.FieldByName(s.Field)
+	if !val.IsValid() {
+		return false, nil, fmt.Errorf("field %s not found", s.Field)
+	}
+	if val.IsNil() {
+		return true, []byte{}, nil
+	}
+
+	b, ok := val.Interface().(*string)
+	if !ok {
+		return false, nil, fmt.Errorf("field %s is not a string", s.Field)
+	}
+	return true, []byte(*b), nil
+}
+
+// FromArgs implements the memdb.Indexer interface.
+func (s *StringPtrIndex) FromArgs(args ...interface{}) ([]byte, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("expected one argument, got %d", len(args))
+	}
+
+	arg, ok := args[0].(string)
+	if !ok {
+		return nil, fmt.Errorf("expected string argument, got %T", args[0])
+	}
+	return []byte(arg), nil
 }
 
 // NewDatabase creates a new database for the node to store data in. This
@@ -91,6 +143,11 @@ func NewDatabase() (*Database, error) {
 							Name:    "control-plane-host",
 							Unique:  false,
 							Indexer: &memdb.StringFieldIndex{Field: "ControlPlaneHost"},
+						},
+						"group": {
+							Name:    "group",
+							Unique:  false,
+							Indexer: &StringPtrIndex{Field: "Group"},
 						},
 					},
 				},
@@ -126,7 +183,7 @@ func (d *Database) DeleteNode(controlPlaneHost string, nodeID uuid.UUID) error {
 
 // GetHosts returns a list of all hosts for data plane nodes connected to
 // control planes using the in-memory database.
-func (d *Database) GetHosts() ([]string, error) {
+func (d *Database) GetHosts() ([]Hosts, error) {
 	txn := d.db.Txn(false)
 	defer txn.Abort()
 	it, err := txn.Get("node", "control-plane-host")
@@ -134,25 +191,39 @@ func (d *Database) GetHosts() ([]string, error) {
 		return nil, fmt.Errorf("unable to get control plane hosts from database: %w", err)
 	}
 
-	hosts := []string{}
-	uniq := map[string]bool{}
+	controlPlaneHostMap := make(map[string]map[string]bool)
 	for obj := it.Next(); obj != nil; obj = it.Next() {
 		n, ok := obj.(Node)
 		if !ok {
 			return nil, fmt.Errorf("unable to cast node for control plane hosts: %w", err)
 		}
-		if _, exists := uniq[n.ControlPlaneHost]; exists {
-			continue
+
+		if _, exists := controlPlaneHostMap[n.ControlPlaneHost]; !exists {
+			controlPlaneHostMap[n.ControlPlaneHost] = make(map[string]bool)
 		}
-		uniq[n.ControlPlaneHost] = true
-		hosts = append(hosts, n.ControlPlaneHost)
+		if n.Group != nil {
+			controlPlaneHostMap[n.ControlPlaneHost][*n.Group] = true
+		}
 	}
+
+	hosts := []Hosts{}
+	for controlPlaneHost, groups := range controlPlaneHostMap {
+		var groupList []string
+		for group := range groups {
+			groupList = append(groupList, group)
+		}
+		hosts = append(hosts, Hosts{
+			Hostname: controlPlaneHost,
+			Groups:   groupList,
+		})
+	}
+
 	return hosts, nil
 }
 
-// GetNodes returns a list of all nodes connected to a control plane using the
-// in-memory database.
-func (d *Database) GetNodes(controlPlaneHost string) ([]Node, error) {
+// GetNodesByHost returns a list of all nodes connected to a control plane using
+// the in-memory database.
+func (d *Database) GetNodesByHost(controlPlaneHost string) ([]Node, error) {
 	txn := d.db.Txn(false)
 	defer txn.Abort()
 	it, err := txn.Get("node", "control-plane-host", controlPlaneHost)
@@ -167,6 +238,31 @@ func (d *Database) GetNodes(controlPlaneHost string) ([]Node, error) {
 		if !ok {
 			return nil, fmt.Errorf("unable to cast node for control plane host %s: %w",
 				controlPlaneHost, err)
+		}
+		nodes = append(nodes, p)
+	}
+	if len(nodes) == 0 {
+		return nil, ErrHostNotFound
+	}
+
+	return nodes, nil
+}
+
+// GetNodesByGroup returns a list of all nodes connected associated with a
+// group using the in-memory database.
+func (d *Database) GetNodesByGroup(group string) ([]Node, error) {
+	txn := d.db.Txn(false)
+	defer txn.Abort()
+	it, err := txn.Get("node", "group", group)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get nodes for group %s from database: %w", group, err)
+	}
+
+	nodes := []Node{}
+	for obj := it.Next(); obj != nil; obj = it.Next() {
+		p, ok := obj.(Node)
+		if !ok {
+			return nil, fmt.Errorf("unable to cast node for group %s: %w", group, err)
 		}
 		nodes = append(nodes, p)
 	}

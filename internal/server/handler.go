@@ -22,8 +22,33 @@ import (
 	"github.com/google/uuid"
 	"github.com/mikefero/kheper/internal/api"
 	"github.com/mikefero/kheper/internal/database"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 	"go.uber.org/zap"
 )
+
+type v1Hosts struct {
+	Hostname string   `json:"hostname"`
+	Groups   []string `json:"groups,omitempty"`
+}
+
+type v1HostNode struct {
+	CipherSuite string             `json:"cipher_suite"`
+	Group       *string            `json:"group,omitempty"`
+	Hostname    string             `json:"hostname"`
+	ID          openapi_types.UUID `json:"id"`
+	TLSVersion  string             `json:"tls_version"`
+	Version     string             `json:"version"`
+}
+
+type v1Node struct {
+	CipherSuite string                 `json:"cipher_suite"`
+	Group       *string                `json:"group,omitempty"`
+	Hostname    string                 `json:"hostname"`
+	ID          openapi_types.UUID     `json:"id"`
+	Payload     map[string]interface{} `json:"payload"`
+	TLSVersion  string                 `json:"tls_version"`
+	Version     string                 `json:"version"`
+}
 
 // GetHosts will return a list of all hosts connected to control plane(s) using
 // the in-memory database and return them as a JSON response.
@@ -39,9 +64,17 @@ func (h *handler) GetHosts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	hostsResponse := []v1Hosts{}
+	for _, host := range hosts {
+		hostsResponse = append(hostsResponse, v1Hosts{
+			Hostname: host.Hostname,
+			Groups:   host.Groups,
+		})
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(hosts)
+	err = json.NewEncoder(w).Encode(hostsResponse)
 	if err != nil {
 		h.logger.Error("unable to encode hosts response",
 			zap.String("method", r.Method),
@@ -56,7 +89,7 @@ func (h *handler) GetHosts(w http.ResponseWriter, r *http.Request) {
 // GetHost will return a list of all nodes connected to a control plane host
 // using the in-memory database and return them as a JSON response.
 func (h *handler) GetHost(w http.ResponseWriter, r *http.Request, host api.HostParameter) {
-	nodes, err := h.db.GetNodes(host)
+	nodes, err := h.db.GetNodesByHost(host)
 	if err != nil && !errors.Is(err, database.ErrHostNotFound) {
 		h.logger.Error("unable to retrieve nodes",
 			zap.String("host", host),
@@ -77,7 +110,7 @@ func (h *handler) GetHost(w http.ResponseWriter, r *http.Request, host api.HostP
 	}
 
 	// Create the host nodes response
-	hostNodesResponse := api.HostNodesResponse{}
+	hostNodesResponse := []v1HostNode{}
 	for _, node := range nodes {
 		id, err := uuid.Parse(node.ID)
 		if err != nil {
@@ -96,12 +129,13 @@ func (h *handler) GetHost(w http.ResponseWriter, r *http.Request, host api.HostP
 		hostname := node.Hostname
 		tlsVersion := node.TLSVersion
 		version := node.Version
-		hostNodesResponse = append(hostNodesResponse, api.HostNode{
-			Id:          &id,
-			CipherSuite: &cipherSuite,
-			Hostname:    &hostname,
-			TlsVersion:  &tlsVersion,
-			Version:     &version,
+		hostNodesResponse = append(hostNodesResponse, v1HostNode{
+			ID:          id,
+			CipherSuite: cipherSuite,
+			Group:       node.Group,
+			Hostname:    hostname,
+			TLSVersion:  tlsVersion,
+			Version:     version,
 		})
 	}
 
@@ -149,13 +183,14 @@ func (h *handler) GetHostNodeId(w http.ResponseWriter, r *http.Request, host api
 	}
 
 	// Create the node response
-	nodeResponse := api.Node{
-		Id:          &nodeId,
-		CipherSuite: &node.CipherSuite,
-		Hostname:    &node.Hostname,
-		Payload:     &node.Payload,
-		TlsVersion:  &node.TLSVersion,
-		Version:     &node.Version,
+	nodeResponse := v1Node{
+		ID:          nodeId,
+		CipherSuite: node.CipherSuite,
+		Group:       node.Group,
+		Hostname:    node.Hostname,
+		Payload:     node.Payload,
+		TLSVersion:  node.TLSVersion,
+		Version:     node.Version,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

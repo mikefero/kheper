@@ -184,6 +184,7 @@ func main() {
 						Protocol:            protocol,
 						Host:                n.Connection.Host,
 						Port:                n.Connection.Port,
+						Group:               n.Group,
 						CipherSuite:         cipherSuite,
 						TLSVersion:          tlsVersion,
 						Certificate:         certificate,

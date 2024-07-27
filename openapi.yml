@@ -117,9 +117,26 @@ components:
           format: uri
         instance:
           type: string
-    Host:
-      type: string
-      example: "example-host.com"
+    HostGroup:
+      type: object
+      properties:
+        hostname:
+          type: string
+        groups:
+          type: array
+          items:
+            type: string
+      example:
+        - hostname: "example-host.com"
+          groups:
+            - "group2"
+            - "group4"
+        - hostname: "host-example.com"
+          groups:
+            - "group3"
+            - "group5"
+        - hostname: "localhost.example.com"
+          groups: []
     HostNode:
       type: object
       properties:
@@ -135,6 +152,14 @@ components:
           description: |
             Cipher suite is the TLS cipher suite used when establishing a
             connection to the control plane.
+        group:
+          type: string
+          nullable: true
+          minLength: 1
+          example: "group2"
+          description: |
+            Group is the name of the group to which the node instance belongs
+            to.
         hostname:
           type: string
           example: "node1.example-host.com"
@@ -152,6 +177,12 @@ components:
           description: |
             Version is the Kong Gateway semantic version of the node. This
             version can be represented as 3 or 4 integers separated by dots.
+      required:
+        - id
+        - cipher_suite
+        - hostname
+        - tls_version
+        - version
     Node:
       type: object
       properties:
@@ -167,6 +198,14 @@ components:
           description: |
             Cipher suite is the TLS cipher suite used when establishing a
             connection to the control plane.
+        group:
+          type: string
+          nullable: true
+          minLength: 1
+          example: "group2"
+          description: |
+            Group is the name of the group to which the node instance belongs
+            to.
         hostname:
           type: string
           example: "node1.example-host.com"
@@ -214,6 +253,13 @@ components:
             type: "reconfigure"
           description: |
             The entire payload sent from the control plane.
+      required:
+        - id
+        - cipher_suite
+        - hostname
+        - tls_version
+        - version
+        - payload
     Resources:
       type: object
       properties:
@@ -261,16 +307,11 @@ components:
   responses:
     HostsResponse:
       description: |
-        A list of hosts
+        A list of hosts and their associated groups (if applicable)
       content:
         application/json:
           schema:
-            type: array
-            items:
-              $ref: '#/components/schemas/Host'
-            example:
-              - "example-host1.com"
-              - "example-host2.com"
+            $ref: '#/components/schemas/HostGroup'
     HostNodesResponse:
       description: |
         A list of nodes with version information
@@ -283,6 +324,7 @@ components:
           example:
             - id: "123e4567-e89b-12d3-a456-426614174000"
               cipher_suite: "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"
+              group: "group2"
               hostname: "node1.example-host.com"
               tls_version: "TLSv1.2"
               version: "1.2.3"
