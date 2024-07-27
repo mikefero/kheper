@@ -134,6 +134,7 @@ func (s *protocolHandlerStandard) OnReadMessageHandler(messageType int, message 
 	payload := database.Node{
 		CipherSuite:      tls.CipherSuiteName(s.session.ConnectionState.CipherSuite),
 		ControlPlaneHost: s.nodeInfo.Host,
+		Group:            s.nodeInfo.Group,
 		Hostname:         s.nodeInfo.Hostname,
 		ID:               s.nodeInfo.ID.String(),
 		Payload:          configuration,

@@ -64,6 +64,7 @@ the configuration options available:
 | YAML Key | Environment Variable | Description |
 |---|---|---|
 | `nodes.instances` | `KHEPER_NODES_INSTANCES` | The number of node instances to create. (default: 1) |
+| `nodes.group` | `KHEPER_NODES_GROUP` | The name of the group to which the node instance belongs. |
 | `nodes.hostname` | `KHEPER_NODES_HOSTNAME` | The RFC 1123 hostname of the node. This can be a `sequential` hostname or a specific hostname. when `sequential` is specified, a sequential hostname will be generated starting with `00000000-0000-4000-8000-000000000001` and incrementing by 1 hexadecimal digit for each node. (default: **sequential**) |
 | `nodes.id` | `KHEPER_NODES_ID` | The unique ID of the node. This can be a `sequential`, `unique`, or a specific UUID. When `sequential` is specified, a sequential UUID will be generated starting with `00000000-0000-4000-8000-000000000001` and incrementing by 1 hexadecimal digit for each node. When `unique` is specified, a unique UUID will be generated. (default: **sequential**) |
 | `nodes.versions` | `KHEPER_NODES_VERSIONS` | The Kong Gateway semantic versions of the node. This version can be represented as 3 or 4 integers separated by dots (e.g. 1.2.3 or 1.2.3.4). Each version in the slice will be "round-robin" across the nodes based on the number of instances. (default: **3.7.0.0**) |
@@ -285,8 +286,15 @@ The Kheper Mock Data Plane Node Application provides an Admin API to manage and 
 
 ```json
 [
-  "example-host1.com",
-  "example-host2.com"
+  {
+    "hostname": "example-host1.com"
+  },
+  {
+    "groups": [
+      "kong-gateway-oss",
+    ],
+    "hostname":"example-host2.com"
+  }
 ]
 ```
 
@@ -302,6 +310,7 @@ The Kheper Mock Data Plane Node Application provides an Admin API to manage and 
   {
     "id": "123e4567-e89b-12d3-a456-426614174000",
     "cipher_suite": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+    "group": "kong-gateway-oss",
     "hostname": "node1.example-host.com",
     "tls_version": "TLSv1.2",
     "version": "1.2.3"
@@ -309,6 +318,7 @@ The Kheper Mock Data Plane Node Application provides an Admin API to manage and 
   {
     "id": "223e4567-e89b-12d3-a456-426614174001",
     "cipher_suite": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+    "group": "kong-gateway-oss",
     "hostname": "node2.example-host.com",
     "tls_version": "TLSv1.2",
     "version": "1.2.3.1"
@@ -328,6 +338,7 @@ The Kheper Mock Data Plane Node Application provides an Admin API to manage and 
 {
   "id": "123e4567-e89b-12d3-a456-426614174000",
   "cipher_suite": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+    "group": "kong-gateway-oss",
   "hostname": "node1.example-host.com",
   "tls_version": "TLSv1.2",
   "version": "1.2.3",

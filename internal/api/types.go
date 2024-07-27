@@ -16,52 +16,63 @@ type Error struct {
 	Type     *string `json:"type,omitempty"`
 }
 
-// Host defines model for Host.
-type Host = string
+// HostGroup defines model for HostGroup.
+type HostGroup struct {
+	Groups   *[]string `json:"groups,omitempty"`
+	Hostname *string   `json:"hostname,omitempty"`
+}
 
 // HostNode defines model for HostNode.
 type HostNode struct {
 	// CipherSuite Cipher suite is the TLS cipher suite used when establishing a
 	// connection to the control plane.
-	CipherSuite *string `json:"cipher_suite,omitempty"`
+	CipherSuite string `json:"cipher_suite"`
+
+	// Group Group is the name of the group to which the node instance belongs
+	// to.
+	Group *string `json:"group"`
 
 	// Hostname Hostname is the RFC 1123 hostname of the node.
-	Hostname *string `json:"hostname,omitempty"`
+	Hostname string `json:"hostname"`
 
 	// Id The node ID
-	Id *openapi_types.UUID `json:"id,omitempty"`
+	Id openapi_types.UUID `json:"id"`
 
 	// TlsVersion TLS version is the TLS version used when establishing a connection
 	// to the control plane.
-	TlsVersion *string `json:"tls_version,omitempty"`
+	TlsVersion string `json:"tls_version"`
 
 	// Version Version is the Kong Gateway semantic version of the node. This
 	// version can be represented as 3 or 4 integers separated by dots.
-	Version *string `json:"version,omitempty"`
+	Version string `json:"version"`
 }
 
 // Node defines model for Node.
 type Node struct {
 	// CipherSuite Cipher suite is the TLS cipher suite used when establishing a
 	// connection to the control plane.
-	CipherSuite *string `json:"cipher_suite,omitempty"`
+	CipherSuite string `json:"cipher_suite"`
+
+	// Group Group is the name of the group to which the node instance belongs
+	// to.
+	Group *string `json:"group"`
 
 	// Hostname Hostname is the RFC 1123 hostname of the node.
-	Hostname *string `json:"hostname,omitempty"`
+	Hostname string `json:"hostname"`
 
 	// Id The node ID
-	Id *openapi_types.UUID `json:"id,omitempty"`
+	Id openapi_types.UUID `json:"id"`
 
 	// Payload The entire payload sent from the control plane.
-	Payload *map[string]interface{} `json:"payload,omitempty"`
+	Payload map[string]interface{} `json:"payload"`
 
 	// TlsVersion TLS version is the TLS version used when establishing a connection
 	// to the control plane.
-	TlsVersion *string `json:"tls_version,omitempty"`
+	TlsVersion string `json:"tls_version"`
 
 	// Version Version is the Kong Gateway semantic version of the node. This
 	// version can be represented as 3 or 4 integers separated by dots.
-	Version *string `json:"version,omitempty"`
+	Version string `json:"version"`
 }
 
 // ResourceNotFound defines model for ResourceNotFound.
@@ -96,7 +107,7 @@ type BadRequestResponse = Error
 type HostNodesResponse = []HostNode
 
 // HostsResponse defines model for HostsResponse.
-type HostsResponse = []Host
+type HostsResponse = HostGroup
 
 // NodeResponse defines model for NodeResponse.
 type NodeResponse = Node

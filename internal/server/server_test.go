@@ -26,7 +26,6 @@ import (
 
 	"github.com/gavv/httpexpect/v2"
 	"github.com/google/uuid"
-	"github.com/mikefero/kheper/internal/api"
 	"github.com/mikefero/kheper/internal/database"
 	"github.com/mikefero/kheper/internal/server"
 	"github.com/stretchr/testify/require"
@@ -203,7 +202,7 @@ func TestServer(t *testing.T) {
 				Status(http.StatusOK).
 				JSON().
 				Array().
-				ContainsOnly("localhost")
+				ContainsOnly(map[string]interface{}{"hostname": "localhost"})
 		})
 
 		t.Run("verify multiple hosts are available", func(t *testing.T) {
@@ -233,7 +232,45 @@ func TestServer(t *testing.T) {
 				Status(http.StatusOK).
 				JSON().
 				Array().
-				ContainsOnly("localhost", "kheper.example.com")
+				ContainsAll(
+					map[string]interface{}{"hostname": "localhost"},
+					map[string]interface{}{"hostname": "kheper.example.com"},
+				)
+		})
+
+		t.Run("verify group is available in hosts if set", func(t *testing.T) {
+			node1ID := uuid.New()
+			node2ID := uuid.New()
+			group := "test"
+			err := db.SetNode(database.Node{
+				ControlPlaneHost: "localhost",
+				Group:            &group,
+				Hostname:         "kheper.local",
+				ID:               node1ID.String(),
+				Payload:          map[string]interface{}{"is_valid": true},
+				Version:          "1.2.3",
+			})
+			require.NoError(t, err)
+			err = db.SetNode(database.Node{
+				ControlPlaneHost: "kheper.example.com",
+				Hostname:         "kheper.local",
+				ID:               node2ID.String(),
+				Payload:          map[string]interface{}{"is_valid": true},
+				Version:          "1.2.3.1",
+			})
+			require.NoError(t, err)
+			defer db.DeleteNode("localhost", node1ID)
+			defer db.DeleteNode("kheper.example.com", node2ID)
+
+			client.GET("/hosts").
+				Expect().
+				Status(http.StatusOK).
+				JSON().
+				Array().
+				ContainsAll(
+					map[string]interface{}{"hostname": "localhost", "groups": []string{"test"}},
+					map[string]interface{}{"hostname": "kheper.example.com"},
+				)
 		})
 
 		t.Run("verify nodes are empty when no hosts are available", func(t *testing.T) {
@@ -262,13 +299,13 @@ func TestServer(t *testing.T) {
 			require.NoError(t, err)
 			defer db.DeleteNode("localhost", id)
 
-			expected := api.HostNodesResponse{
+			expected := []map[string]interface{}{
 				{
-					CipherSuite: &node.CipherSuite,
-					Hostname:    &node.Hostname,
-					Id:          &id,
-					TlsVersion:  &node.TLSVersion,
-					Version:     &node.Version,
+					"cipher_suite": node.CipherSuite,
+					"hostname":     node.Hostname,
+					"id":           id,
+					"tls_version":  node.TLSVersion,
+					"version":      node.Version,
 				},
 			}
 			client.GET("/localhost").
@@ -307,20 +344,20 @@ func TestServer(t *testing.T) {
 			defer db.DeleteNode("localhost", node1ID)
 			defer db.DeleteNode("localhost", node2ID)
 
-			expected := api.HostNodesResponse{
+			expected := []map[string]interface{}{
 				{
-					CipherSuite: &node1.CipherSuite,
-					Hostname:    &node1.Hostname,
-					Id:          &node1ID,
-					TlsVersion:  &node1.TLSVersion,
-					Version:     &node1.Version,
+					"cipher_suite": node1.CipherSuite,
+					"hostname":     node1.Hostname,
+					"id":           node1ID,
+					"tls_version":  node1.TLSVersion,
+					"version":      node1.Version,
 				},
 				{
-					CipherSuite: &node2.CipherSuite,
-					Hostname:    &node2.Hostname,
-					Id:          &node2ID,
-					TlsVersion:  &node2.TLSVersion,
-					Version:     &node2.Version,
+					"cipher_suite": node2.CipherSuite,
+					"hostname":     node2.Hostname,
+					"id":           node2ID,
+					"tls_version":  node2.TLSVersion,
+					"version":      node2.Version,
 				},
 			}
 			client.GET("/localhost").
@@ -359,13 +396,13 @@ func TestServer(t *testing.T) {
 			defer db.DeleteNode("localhost", node1ID)
 			defer db.DeleteNode("kheper.example.com", node2ID)
 
-			expectedNode1 := api.HostNodesResponse{
+			expected := []map[string]interface{}{
 				{
-					CipherSuite: &node1.CipherSuite,
-					Hostname:    &node1.Hostname,
-					Id:          &node1ID,
-					TlsVersion:  &node1.TLSVersion,
-					Version:     &node1.Version,
+					"cipher_suite": node1.CipherSuite,
+					"hostname":     node1.Hostname,
+					"id":           node1ID,
+					"tls_version":  node1.TLSVersion,
+					"version":      node1.Version,
 				},
 			}
 			client.GET("/localhost").
@@ -373,14 +410,14 @@ func TestServer(t *testing.T) {
 				Status(http.StatusOK).
 				JSON().
 				Array().
-				IsEqual(expectedNode1)
-			expectedNode2 := api.HostNodesResponse{
+				IsEqual(expected)
+			expected = []map[string]interface{}{
 				{
-					CipherSuite: &node2.CipherSuite,
-					Hostname:    &node2.Hostname,
-					Id:          &node2ID,
-					TlsVersion:  &node2.TLSVersion,
-					Version:     &node2.Version,
+					"cipher_suite": node2.CipherSuite,
+					"hostname":     node2.Hostname,
+					"id":           node2ID,
+					"tls_version":  node2.TLSVersion,
+					"version":      node2.Version,
 				},
 			}
 			client.GET("/kheper.example.com").
@@ -388,7 +425,70 @@ func TestServer(t *testing.T) {
 				Status(http.StatusOK).
 				JSON().
 				Array().
-				IsEqual(expectedNode2)
+				IsEqual(expected)
+		})
+
+		t.Run("verify group is available in nodes if set", func(t *testing.T) {
+			node1ID := uuid.New()
+			node2ID := uuid.New()
+			group := "test"
+			node1 := database.Node{
+				CipherSuite:      "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+				ControlPlaneHost: "localhost",
+				Hostname:         "kheper.local",
+				ID:               node1ID.String(),
+				Payload:          map[string]interface{}{"is_valid": true},
+				TLSVersion:       "TLSv1.3",
+				Version:          "1.2.3",
+			}
+			node2 := database.Node{
+				CipherSuite:      "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+				ControlPlaneHost: "kheper.example.com",
+				Group:            &group,
+				Hostname:         "kheper.local",
+				ID:               node2ID.String(),
+				Payload:          map[string]interface{}{"is_valid": true},
+				TLSVersion:       "TLSv1.3",
+				Version:          "1.2.3.1",
+			}
+			err := db.SetNode(node1)
+			require.NoError(t, err)
+			err = db.SetNode(node2)
+			require.NoError(t, err)
+			defer db.DeleteNode("localhost", node1ID)
+			defer db.DeleteNode("kheper.example.com", node2ID)
+
+			expected := []map[string]interface{}{
+				{
+					"cipher_suite": node1.CipherSuite,
+					"hostname":     node1.Hostname,
+					"id":           node1ID,
+					"tls_version":  node1.TLSVersion,
+					"version":      node1.Version,
+				},
+			}
+			client.GET("/localhost").
+				Expect().
+				Status(http.StatusOK).
+				JSON().
+				Array().
+				IsEqual(expected)
+			expected = []map[string]interface{}{
+				{
+					"cipher_suite": node2.CipherSuite,
+					"group":        group,
+					"hostname":     node2.Hostname,
+					"id":           node2ID,
+					"tls_version":  node2.TLSVersion,
+					"version":      node2.Version,
+				},
+			}
+			client.GET("/kheper.example.com").
+				Expect().
+				Status(http.StatusOK).
+				JSON().
+				Array().
+				IsEqual(expected)
 		})
 
 		t.Run("verify a node can be retrieved", func(t *testing.T) {
@@ -406,13 +506,47 @@ func TestServer(t *testing.T) {
 			require.NoError(t, err)
 			defer db.DeleteNode("localhost", id)
 
-			expected := api.Node{
-				CipherSuite: &node.CipherSuite,
-				Hostname:    &node.Hostname,
-				Id:          &id,
-				Payload:     &node.Payload,
-				TlsVersion:  &node.TLSVersion,
-				Version:     &node.Version,
+			expected := map[string]interface{}{
+				"cipher_suite": node.CipherSuite,
+				"hostname":     node.Hostname,
+				"id":           id,
+				"payload":      node.Payload,
+				"tls_version":  node.TLSVersion,
+				"version":      node.Version,
+			}
+			client.GET("/localhost/{id}", id).
+				Expect().
+				Status(http.StatusOK).
+				JSON().
+				Object().
+				IsEqual(expected)
+		})
+
+		t.Run("verify a node can be retrieved with a group if set", func(t *testing.T) {
+			id := uuid.New()
+			group := "test"
+			node := database.Node{
+				CipherSuite:      "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+				ControlPlaneHost: "localhost",
+				Group:            &group,
+				Hostname:         "kheper.local",
+				ID:               id.String(),
+				Payload:          map[string]interface{}{"is_valid": true},
+				TLSVersion:       "TLSv1.3",
+				Version:          "1.2.3",
+			}
+			err := db.SetNode(node)
+			require.NoError(t, err)
+			defer db.DeleteNode("localhost", id)
+
+			expected := map[string]interface{}{
+				"cipher_suite": node.CipherSuite,
+				"group":        group,
+				"hostname":     node.Hostname,
+				"id":           id,
+				"payload":      node.Payload,
+				"tls_version":  node.TLSVersion,
+				"version":      node.Version,
 			}
 			client.GET("/localhost/{id}", id).
 				Expect().
@@ -450,13 +584,13 @@ func TestServer(t *testing.T) {
 			defer db.DeleteNode("localhost", node1ID)
 			defer db.DeleteNode("localhost", node2ID)
 
-			expected := api.Node{
-				CipherSuite: &node1.CipherSuite,
-				Hostname:    &node1.Hostname,
-				Id:          &node1ID,
-				Payload:     &node1.Payload,
-				TlsVersion:  &node1.TLSVersion,
-				Version:     &node1.Version,
+			expected := map[string]interface{}{
+				"cipher_suite": node1.CipherSuite,
+				"hostname":     node1.Hostname,
+				"id":           node1ID,
+				"payload":      node1.Payload,
+				"tls_version":  node1.TLSVersion,
+				"version":      node1.Version,
 			}
 			client.GET("/localhost/{id}", node1ID).
 				Expect().
@@ -464,13 +598,13 @@ func TestServer(t *testing.T) {
 				JSON().
 				Object().
 				IsEqual(expected)
-			expected = api.Node{
-				CipherSuite: &node2.CipherSuite,
-				Hostname:    &node2.Hostname,
-				Id:          &node2ID,
-				Payload:     &node2.Payload,
-				TlsVersion:  &node2.TLSVersion,
-				Version:     &node2.Version,
+			expected = map[string]interface{}{
+				"cipher_suite": node2.CipherSuite,
+				"hostname":     node2.Hostname,
+				"id":           node2ID,
+				"payload":      node2.Payload,
+				"tls_version":  node2.TLSVersion,
+				"version":      node2.Version,
 			}
 			client.GET("/localhost/{id}", node2ID).
 				Expect().
@@ -508,34 +642,34 @@ func TestServer(t *testing.T) {
 			defer db.DeleteNode("localhost", node1ID)
 			defer db.DeleteNode("kheper.example.com", node2ID)
 
-			expectedNode1 := api.Node{
-				CipherSuite: &node1.CipherSuite,
-				Hostname:    &node1.Hostname,
-				Id:          &node1ID,
-				Payload:     &node1.Payload,
-				TlsVersion:  &node1.TLSVersion,
-				Version:     &node1.Version,
+			expected := map[string]interface{}{
+				"cipher_suite": node1.CipherSuite,
+				"hostname":     node1.Hostname,
+				"id":           node1ID,
+				"payload":      node1.Payload,
+				"tls_version":  node1.TLSVersion,
+				"version":      node1.Version,
 			}
 			client.GET("/localhost/{id}", node1ID).
 				Expect().
 				Status(http.StatusOK).
 				JSON().
 				Object().
-				IsEqual(expectedNode1)
-			expectedNode2 := api.Node{
-				CipherSuite: &node2.CipherSuite,
-				Hostname:    &node2.Hostname,
-				Id:          &node2ID,
-				Payload:     &node2.Payload,
-				TlsVersion:  &node2.TLSVersion,
-				Version:     &node2.Version,
+				IsEqual(expected)
+			expected = map[string]interface{}{
+				"cipher_suite": node2.CipherSuite,
+				"hostname":     node2.Hostname,
+				"id":           node2ID,
+				"payload":      node2.Payload,
+				"tls_version":  node2.TLSVersion,
+				"version":      node2.Version,
 			}
 			client.GET("/kheper.example.com/{id}", node2ID).
 				Expect().
 				Status(http.StatusOK).
 				JSON().
 				Object().
-				IsEqual(expectedNode2)
+				IsEqual(expected)
 		})
 
 		t.Run("verify nodes is not found when node ID is not available", func(t *testing.T) {

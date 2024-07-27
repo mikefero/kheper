@@ -43,6 +43,33 @@ func TestDatabase(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, d)
 		id := uuid.New()
+		group := "test"
+		payload := map[string]interface{}{"is_valid": true}
+		expected := database.Node{
+			ControlPlaneHost: "localhost",
+			Group:            &group,
+			Hostname:         "kheper.local",
+			ID:               id.String(),
+			Payload:          payload,
+			Version:          "1.2.3",
+		}
+
+		// Set the node
+		err = d.SetNode(expected)
+		require.NoError(t, err)
+		defer d.DeleteNode("localhost", id)
+
+		// Verify the node
+		actual, err := d.GetNode("localhost", id)
+		require.NoError(t, err)
+		require.Equal(t, &expected, actual)
+	})
+
+	t.Run("verify node is properly inserted into the database when group is nil", func(t *testing.T) {
+		d, err := database.NewDatabase()
+		require.NoError(t, err)
+		require.NotNil(t, d)
+		id := uuid.New()
 		payload := map[string]interface{}{"is_valid": true}
 		expected := database.Node{
 			ControlPlaneHost: "localhost",
@@ -201,10 +228,12 @@ func TestDatabase(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, d)
 
+		group := "test"
 		payload := map[string]interface{}{"is_valid": true}
 		id := uuid.New()
 		expected := database.Node{
 			ControlPlaneHost: "localhost",
+			Group:            &group,
 			Hostname:         "kheper.local",
 			ID:               id.String(),
 			Payload:          payload,
@@ -220,7 +249,9 @@ func TestDatabase(t *testing.T) {
 		hosts, err := d.GetHosts()
 		require.NoError(t, err)
 		require.Len(t, hosts, 1)
-		require.Equal(t, "localhost", hosts[0])
+		require.Equal(t, "localhost", hosts[0].Hostname)
+		require.Len(t, hosts[0].Groups, 1)
+		require.Equal(t, "test", hosts[0].Groups[0])
 	})
 
 	t.Run("verify multiple hosts are available", func(t *testing.T) {
@@ -229,10 +260,12 @@ func TestDatabase(t *testing.T) {
 		require.NotNil(t, d)
 
 		node1ID := uuid.New()
+		group1 := "test-1"
 		node2ID := uuid.New()
 		payload := map[string]interface{}{"is_valid": true}
 		err = d.SetNode(database.Node{
 			ControlPlaneHost: "localhost",
+			Group:            &group1,
 			Hostname:         "kheper.local",
 			ID:               node1ID.String(),
 			Payload:          payload,
@@ -253,7 +286,15 @@ func TestDatabase(t *testing.T) {
 		hosts, err := d.GetHosts()
 		require.NoError(t, err)
 		require.Len(t, hosts, 2)
-		require.ElementsMatch(t, []string{"localhost", "kheper.example.com"}, hosts)
+		require.ElementsMatch(t, []database.Hosts{
+			{
+				Hostname: "localhost",
+				Groups:   []string{"test-1"},
+			},
+			{
+				Hostname: "kheper.example.com",
+			},
+		}, hosts)
 	})
 
 	t.Run("verify a single host is available when multiple nodes on the same host are available", func(t *testing.T) {
@@ -263,9 +304,11 @@ func TestDatabase(t *testing.T) {
 
 		node1ID := uuid.New()
 		node2ID := uuid.New()
+		group := "test"
 		payload := map[string]interface{}{"is_valid": true}
 		err = d.SetNode(database.Node{
 			ControlPlaneHost: "localhost",
+			Group:            &group,
 			Hostname:         "kheper.local",
 			ID:               node1ID.String(),
 			Payload:          payload,
@@ -274,6 +317,7 @@ func TestDatabase(t *testing.T) {
 		require.NoError(t, err)
 		err = d.SetNode(database.Node{
 			ControlPlaneHost: "localhost",
+			Group:            &group,
 			Hostname:         "kheper.local",
 			ID:               node2ID.String(),
 			Payload:          payload,
@@ -286,7 +330,9 @@ func TestDatabase(t *testing.T) {
 		hosts, err := d.GetHosts()
 		require.NoError(t, err)
 		require.Len(t, hosts, 1)
-		require.Equal(t, "localhost", hosts[0])
+		require.Equal(t, "localhost", hosts[0].Hostname)
+		require.Len(t, hosts[0].Groups, 1)
+		require.Equal(t, group, hosts[0].Groups[0])
 	})
 
 	t.Run("verify host is not found when no nodes are available", func(t *testing.T) {
@@ -294,7 +340,7 @@ func TestDatabase(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, d)
 
-		_, err = d.GetNodes("localhost")
+		_, err = d.GetNodesByHost("localhost")
 		require.Equal(t, database.ErrHostNotFound, err)
 	})
 
@@ -319,7 +365,7 @@ func TestDatabase(t *testing.T) {
 		defer d.DeleteNode("localhost", id)
 
 		// Verify the node
-		nodes, err := d.GetNodes("localhost")
+		nodes, err := d.GetNodesByHost("localhost")
 		require.NoError(t, err)
 		require.Len(t, nodes, 1)
 		require.Equal(t, expected, nodes[0])
@@ -357,9 +403,140 @@ func TestDatabase(t *testing.T) {
 		defer d.DeleteNode("localhost", node2ID)
 
 		// Verify the nodes
-		nodes, err := d.GetNodes("localhost")
+		nodes, err := d.GetNodesByHost("localhost")
 		require.NoError(t, err)
 		require.Len(t, nodes, 2)
 		require.ElementsMatch(t, []database.Node{expectedNode1, expectedNode2}, nodes)
+	})
+
+	t.Run("verify node is properly inserted into the database", func(t *testing.T) {
+		d, err := database.NewDatabase()
+		require.NoError(t, err)
+		require.NotNil(t, d)
+		id := uuid.New()
+		group := "test"
+		payload := map[string]interface{}{"is_valid": true}
+		expected := database.Node{
+			ControlPlaneHost: "localhost",
+			Group:            &group,
+			Hostname:         "kheper.local",
+			ID:               id.String(),
+			Payload:          payload,
+			Version:          "1.2.3",
+		}
+
+		// Set the node
+		err = d.SetNode(expected)
+		require.NoError(t, err)
+		defer d.DeleteNode("localhost", id)
+
+		// Verify the node
+		actual, err := d.GetNode("localhost", id)
+		require.NoError(t, err)
+		require.Equal(t, &expected, actual)
+	})
+
+	t.Run("verify nodes can be retrieved by group", func(t *testing.T) {
+		d, err := database.NewDatabase()
+		require.NoError(t, err)
+		require.NotNil(t, d)
+		id := uuid.New()
+		group := "test"
+		payload := map[string]interface{}{"is_valid": true}
+		expected := database.Node{
+			ControlPlaneHost: "localhost",
+			Group:            &group,
+			Hostname:         "kheper.local",
+			ID:               id.String(),
+			Payload:          payload,
+			Version:          "1.2.3",
+		}
+
+		// Set the node
+		err = d.SetNode(expected)
+		require.NoError(t, err)
+		defer d.DeleteNode("localhost", id)
+
+		// Verify the node
+		actual, err := d.GetNodesByGroup(group)
+		require.NoError(t, err)
+		require.Len(t, actual, 1)
+		require.Equal(t, expected, actual[0])
+	})
+
+	t.Run("verify multiple nodes can be retrieved by group", func(t *testing.T) {
+		d, err := database.NewDatabase()
+		require.NoError(t, err)
+		require.NotNil(t, d)
+		nodeID1 := uuid.New()
+		nodeID2 := uuid.New()
+		group := "test"
+		payload := map[string]interface{}{"is_valid": true}
+		expected := []database.Node{
+			{
+				ControlPlaneHost: "localhost",
+				Group:            &group,
+				Hostname:         "kheper.local",
+				ID:               nodeID1.String(),
+				Payload:          payload,
+				Version:          "1.2.3",
+			},
+			{
+				ControlPlaneHost: "localhost",
+				Group:            &group,
+				Hostname:         "kheper.local",
+				ID:               nodeID2.String(),
+				Payload:          payload,
+				Version:          "1.2.3.1",
+			},
+		}
+
+		// Set the nodes
+		err = d.SetNode(expected[0])
+		require.NoError(t, err)
+		defer d.DeleteNode("localhost", nodeID1)
+		err = d.SetNode(expected[1])
+		require.NoError(t, err)
+		defer d.DeleteNode("localhost", nodeID2)
+
+		// Verify the node
+		actual, err := d.GetNodesByGroup(group)
+		require.NoError(t, err)
+		require.Len(t, actual, 2)
+		require.ElementsMatch(t, expected, actual)
+	})
+
+	t.Run("verify no nodes are retrieved by group when group does not exist", func(t *testing.T) {
+		d, err := database.NewDatabase()
+		require.NoError(t, err)
+		require.NotNil(t, d)
+
+		// Attempt to retrieve invalid group when there are no nodes
+		actual, err := d.GetNodesByGroup("invalid")
+		require.Equal(t, database.ErrHostNotFound, err)
+		require.Nil(t, actual)
+
+		// Create a new node
+		nodeID := uuid.New()
+		group := "test"
+		payload := map[string]interface{}{"is_valid": true}
+		expected := database.Node{
+			ControlPlaneHost: "localhost",
+			Group:            &group,
+			Hostname:         "kheper.local",
+			ID:               nodeID.String(),
+			Payload:          payload,
+			Version:          "1.2.3",
+		}
+
+		// Set the node
+		err = d.SetNode(expected)
+		require.NoError(t, err)
+		defer d.DeleteNode("localhost", nodeID)
+
+		// Attempt to retrieve invalid group
+		actual, err = d.GetNodesByGroup("invalid")
+		require.Equal(t, database.ErrHostNotFound, err)
+		require.Nil(t, actual)
 	})
 }

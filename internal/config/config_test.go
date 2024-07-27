@@ -122,6 +122,7 @@ func TestConfig(t *testing.T) {
   timeouts:
     write: 10s
 nodes:
+  group: test
   connection:
     host: localhost
     port: 3737
@@ -135,6 +136,7 @@ nodes:
 		actual, err := config.NewConfig()
 		require.NoError(t, err)
 
+		group := "test"
 		expected := &config.Config{
 			Server: config.Server{
 				Port: 4747,
@@ -162,6 +164,7 @@ nodes:
 						Key:         "key",
 					},
 					Instances: 1,
+					Group:     &group,
 					Hostname:  "sequential",
 					ID:        "sequential",
 					Versions:  []string{"3.7.0.0"},
@@ -248,6 +251,7 @@ nodes:
 		t.Setenv("KHEPER_DEFAULTS_RECONNECTION_INTERVAL", "1s")
 		t.Setenv("KHEPER_DEFAULTS_RECONNECTION_JITTER", "2s")
 		t.Setenv("KHEPER_NODES_INSTANCES", "5")
+		t.Setenv("KHEPER_NODES_GROUP", "kheper")
 		t.Setenv("KHEPER_NODES_HOSTNAME", "kheper.local")
 		t.Setenv("KHEPER_NODES_ID", "unique")
 		t.Setenv("KHEPER_NODES_CONNECTION_PROTOCOL", "jsonrpc")
@@ -259,6 +263,7 @@ nodes:
 			t.Fatalf("unable to create config: %v", err)
 		}
 
+		group := "kheper"
 		expected := &config.Config{
 			Server: config.Server{
 				Port: 4747,
@@ -287,6 +292,7 @@ nodes:
 						TLSVersion: "TLS1.2",
 					},
 					Instances: 5,
+					Group:     &group,
 					Hostname:  "kheper.local",
 					ID:        "unique",
 					Versions:  []string{"3.6.0.0", "3.5.0.0"},

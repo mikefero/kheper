@@ -78,6 +78,8 @@ type Node struct {
 	Connection Connection `yaml:"connection" mapstructure:"connection"`
 	// Instances is the number of nodes to create.
 	Instances int `yaml:"instances" mapstructure:"instances"`
+	// Group is the name of the group to which the node instance belongs.
+	Group *string `yaml:"group" mapstructure:"group"`
 	// Hostname is the RFC 1123 hostname of the node. If 'sequential' is specified
 	// a sequential hostname will be generated; otherwise, the hostname will be
 	// used as-is.
@@ -170,6 +172,9 @@ func NewConfig() (*Config, error) {
 	// Bind environment variables to viper that do not have a corresponding
 	// default value
 	viper.SetEnvPrefix("kheper")
+	if err := viper.BindEnv("nodes.group"); err != nil {
+		return nil, fmt.Errorf("unable to bind nodes.group environment variable: %w", err)
+	}
 	if err := viper.BindEnv("nodes.connection.host"); err != nil {
 		return nil, fmt.Errorf("unable to bind nodes.connection.host environment variable: %w", err)
 	}
