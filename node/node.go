@@ -87,9 +87,9 @@ type Opts struct {
 
 	// Group is the name of the group to which the node instance belongs.
 	Group *string
-	// ServerConfiguration is the configuration for the API server to run. If
+	// APIConfiguration is the configuration for the API server to run. If
 	// nil, the API server will not be started.
-	ServerConfiguration *config.Server
+	APIConfiguration *config.API
 
 	// Logger is the logger to use for logging.
 	Logger *zap.Logger
@@ -148,13 +148,13 @@ func NewNode(opts Opts) (*Node, error) {
 	}
 
 	// Create the API server for the node(s)
-	if opts.ServerConfiguration != nil {
+	if opts.APIConfiguration != nil && opts.APIConfiguration.Enabled {
 		apiServer, err = server.NewServer(server.Opts{
 			Database:          db,
-			Port:              opts.ServerConfiguration.Port,
-			ReadTimeout:       opts.ServerConfiguration.Timeouts.Read,
-			ReadHeaderTimeout: opts.ServerConfiguration.Timeouts.ReadHeader,
-			WriteTimeout:      opts.ServerConfiguration.Timeouts.Write,
+			Port:              opts.APIConfiguration.Port,
+			ReadTimeout:       opts.APIConfiguration.Timeouts.Read,
+			ReadHeaderTimeout: opts.APIConfiguration.Timeouts.ReadHeader,
+			WriteTimeout:      opts.APIConfiguration.Timeouts.Write,
 			Logger:            opts.Logger,
 		})
 		if err != nil {
@@ -261,7 +261,7 @@ func (n *Node) Run(ctx context.Context) error {
 	}
 	defer n.handler.close()
 
-	// Start the API server if set
+	// Start the admin API server if set
 	if apiServer != nil {
 		once.Do(func() {
 			go func() {

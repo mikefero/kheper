@@ -1,5 +1,6 @@
 # Admin API server configuration
-server:
+api:
+  enabled: true
   port: 5000
   timeouts:
     read: 15s

@@ -179,21 +179,21 @@ func main() {
 
 					// Create the node options
 					nodeOpts := node.Opts{
-						ID:                  nodeID,
-						Hostname:            hostname,
-						Version:             version,
-						Protocol:            protocol,
-						Host:                n.Connection.Host,
-						Port:                n.Connection.Port,
-						Group:               n.Group,
-						CipherSuite:         cipherSuite,
-						TLSVersion:          tlsVersion,
-						Certificate:         certificate,
-						HandshakeTimeout:    nodeConfiguration.HandshakeTimeout,
-						PingInterval:        nodeConfiguration.PingInterval,
-						PingJitter:          nodeConfiguration.PingJitter,
-						ServerConfiguration: &config.Server,
-						Logger:              logger,
+						ID:               nodeID,
+						Hostname:         hostname,
+						Version:          version,
+						Protocol:         protocol,
+						Host:             n.Connection.Host,
+						Port:             n.Connection.Port,
+						Group:            n.Group,
+						CipherSuite:      cipherSuite,
+						TLSVersion:       tlsVersion,
+						Certificate:      certificate,
+						HandshakeTimeout: nodeConfiguration.HandshakeTimeout,
+						PingInterval:     nodeConfiguration.PingInterval,
+						PingJitter:       nodeConfiguration.PingJitter,
+						APIConfiguration: &config.API,
+						Logger:           logger,
 					}
 
 					// Create the node

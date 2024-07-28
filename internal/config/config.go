@@ -22,23 +22,24 @@ import (
 )
 
 const (
-	defaultHandshakeTimeout        = 15 * time.Second
-	defaultNodeCreationDelay       = 20 * time.Millisecond
-	defaultPingInterval            = 15 * time.Second
-	defaultPingJitter              = 5 * time.Second
-	defaultReconnectionInterval    = 10 * time.Second
-	defaultReconnectionJitter      = 5 * time.Second
-	defaultServerPort              = 5000
-	defaultServerReadTimeout       = 15 * time.Second
-	defaultServerReadHeaderTimeout = 15 * time.Second
-	defaultServerWriteTimeout      = 15 * time.Second
-	defaultNodeProtocol            = "standard"
-	defaultNodeHostname            = "sequential"
-	defaultNodeID                  = "sequential"
-	defaultNodeInstances           = 1
+	defaultHandshakeTimeout     = 15 * time.Second
+	defaultNodeCreationDelay    = 20 * time.Millisecond
+	defaultPingInterval         = 15 * time.Second
+	defaultPingJitter           = 5 * time.Second
+	defaultReconnectionInterval = 10 * time.Second
+	defaultReconnectionJitter   = 5 * time.Second
+	defaultAPIEnabled           = false
+	defaultAPIPort              = 5000
+	defaultAPIReadTimeout       = 15 * time.Second
+	defaultAPIReadHeaderTimeout = 15 * time.Second
+	defaultAPIWriteTimeout      = 15 * time.Second
+	defaultNodeProtocol         = "standard"
+	defaultNodeHostname         = "sequential"
+	defaultNodeID               = "sequential"
+	defaultNodeInstances        = 1
 )
 
-var defaultNodeVersions = []string{"3.7.0.0"}
+var defaultNodeVersions = []string{"3.7.1"}
 
 // Config is the configuration for the connection and mock nodes to instantiate
 // and run.
@@ -47,8 +48,18 @@ type Config struct {
 	Globals Globals `yaml:"globals" mapstructure:"globals"`
 	// Nodes are the nodes to instantiate and run.
 	Nodes []Node `yaml:"nodes" mapstructure:"nodes"`
-	// Server is the configuration for the API server to run.
-	Server Server `yaml:"server" mapstructure:"server"`
+	// API is the configuration for the admin API server to run.
+	API API `yaml:"api" mapstructure:"api"`
+}
+
+// API is the configuration for the admin API server to run.
+type API struct {
+	// Enabled is whether the admin API server should be enabled.
+	Enabled bool `yaml:"enabled" mapstructure:"enabled"`
+	// Port is the port to run the admin API server on.
+	Port int `yaml:"port" mapstructure:"port"`
+	// Timeouts are the timeouts for the admin API server.
+	Timeouts Timeouts `yaml:"timeouts" mapstructure:"timeouts"`
 }
 
 // Global are the global values for various features of Kheper.
@@ -125,15 +136,7 @@ type Connection struct {
 	Key string `yaml:"key" mapstructure:"key"`
 }
 
-// Server is the configuration for the API server to run.
-type Server struct {
-	// Port is the port to run the API server on.
-	Port int `yaml:"port" mapstructure:"port"`
-	// Timeouts are the timeouts for the API server.
-	Timeouts Timeouts `yaml:"timeouts" mapstructure:"timeouts"`
-}
-
-// Timeouts are the timeouts for the API server.
+// Timeouts are the timeouts for the admin API server.
 type Timeouts struct {
 	// Read is the timeout for reading the request body.
 	Read time.Duration `yaml:"read" mapstructure:"read"`
@@ -146,6 +149,13 @@ type Timeouts struct {
 // NewConfig creates a new configuration comprised of the configuration file,
 // environment variables, and defaults.
 func NewConfig() (*Config, error) {
+	// API defaults
+	viper.SetDefault("api.enabled", defaultAPIEnabled)
+	viper.SetDefault("api.port", defaultAPIPort)
+	viper.SetDefault("api.timeouts.read", defaultAPIReadTimeout)
+	viper.SetDefault("api.timeouts.read_header", defaultAPIReadHeaderTimeout)
+	viper.SetDefault("api.timeouts.write", defaultAPIWriteTimeout)
+
 	// Connection defaults
 	viper.SetDefault("globals.node.handshake_timeout", defaultHandshakeTimeout)
 	viper.SetDefault("globals.node.node_creation_delay", defaultNodeCreationDelay)
@@ -162,12 +172,6 @@ func NewConfig() (*Config, error) {
 
 	// Node connection defaults
 	viper.SetDefault("nodes.connection.protocol", defaultNodeProtocol)
-
-	// Server defaults
-	viper.SetDefault("server.port", defaultServerPort)
-	viper.SetDefault("server.timeouts.read", defaultServerReadTimeout)
-	viper.SetDefault("server.timeouts.read_header", defaultServerReadHeaderTimeout)
-	viper.SetDefault("server.timeouts.write", defaultServerWriteTimeout)
 
 	// Kheper configuration setup for viper
 	viper.SetConfigName("kheper")
