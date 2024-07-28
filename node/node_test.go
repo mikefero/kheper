@@ -474,6 +474,9 @@ func TestNode(t *testing.T) {
 		var data map[string]interface{}
 		err = json.Unmarshal(dataCaptor.Last(), &data)
 		require.NoError(t, err)
+		plugins, ok := data["plugins"]
+		require.True(t, ok)
+		require.NotNil(t, plugins)
 		delete(data, "plugins")
 		updateData, err := json.Marshal(data)
 		require.NoError(t, err)

@@ -192,26 +192,13 @@ func (s *protocolHandlerStandard) ping() error {
 	return nil
 }
 
-func sendInfo(session *ankh.Session, nodeInfo Info) error {
-	plugins := []map[string]interface{}{}
-	for _, plugin := range nodeInfo.Plugins {
-		plugins = append(plugins, map[string]interface{}{
-			"name":    plugin.Name,
-			"version": nodeInfo.Version.String(),
-		})
-	}
-	info := map[string]interface{}{
-		"type": "basic_info",
-		"labels": map[string]interface{}{
-			"kheper": "true",
-		},
-		"plugins": plugins,
-	}
-	jsonInfo, err := json.Marshal(info)
+func sendInfo(session *ankh.Session, info Info) error {
+	basicInfo := GetStandardBasicInfo(info.Version.String())
+	jsonBasicInfo, err := json.Marshal(basicInfo)
 	if err != nil {
-		return fmt.Errorf("unable to marshal info message: %w", err)
+		return fmt.Errorf("unable to marshal basic info message: %w", err)
 	}
-	if err := session.Send(jsonInfo); err != nil {
+	if err := session.Send(jsonBasicInfo); err != nil {
 		return fmt.Errorf("unable to write websocket message: %w", err)
 	}
 	return nil
