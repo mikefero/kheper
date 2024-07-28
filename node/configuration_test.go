@@ -14,6 +14,7 @@
 package node_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/mikefero/kheper/node"
@@ -168,7 +169,7 @@ func TestConfiguration(t *testing.T) {
 			"plugins": plugins,
 		}
 
-		require.Equal(t, expected, node.GetStandardBasicInfo("3.7.1.2"))
+		require.Equal(t, expected, node.GetStandardBasicInfo(context.TODO(), "3.7.1.2"))
 	})
 
 	t.Run("verify configuration is parsed correctly for default or unknown version", func(t *testing.T) {
@@ -187,6 +188,6 @@ func TestConfiguration(t *testing.T) {
 			"plugins": plugins,
 		}
 
-		require.Equal(t, expected, node.GetStandardBasicInfo("0.0.1"))
+		require.Equal(t, expected, node.GetStandardBasicInfo(context.TODO(), "0.0.1"))
 	})
 }

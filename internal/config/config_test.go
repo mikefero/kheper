@@ -61,6 +61,13 @@ func TestConfig(t *testing.T) {
 					Versions:  []string{"3.7.1"},
 				},
 			},
+			OpenTelemetry: config.OpenTelemetry{
+				Host:             "localhost",
+				Port:             4317,
+				ServiceName:      "kheper",
+				MetricInterval:   2 * time.Second,
+				ShutdownInterval: 10 * time.Second,
+			},
 		}
 		require.Equal(t, expected, actual)
 	})
@@ -110,6 +117,13 @@ func TestConfig(t *testing.T) {
 					Versions:  []string{"3.7.1"},
 				},
 			},
+			OpenTelemetry: config.OpenTelemetry{
+				Host:             "localhost",
+				Port:             4317,
+				ServiceName:      "kheper",
+				MetricInterval:   2 * time.Second,
+				ShutdownInterval: 10 * time.Second,
+			},
 		}
 		require.Equal(t, expected, actual)
 	})
@@ -126,6 +140,8 @@ func TestConfig(t *testing.T) {
   port: 4747
   timeouts:
     write: 10s
+open_telemetry:
+  enabled: true
 nodes:
   group: test
   connection:
@@ -177,6 +193,14 @@ nodes:
 					ID:        "sequential",
 					Versions:  []string{"3.7.1"},
 				},
+			},
+			OpenTelemetry: config.OpenTelemetry{
+				Enabled:          true,
+				Host:             "localhost",
+				Port:             4317,
+				ServiceName:      "kheper",
+				MetricInterval:   2 * time.Second,
+				ShutdownInterval: 10 * time.Second,
 			},
 		}
 		require.Equal(t, expected, actual)
@@ -245,6 +269,13 @@ nodes:
 					Versions:  []string{"3.7.1"},
 				},
 			},
+			OpenTelemetry: config.OpenTelemetry{
+				Host:             "localhost",
+				Port:             4317,
+				ServiceName:      "kheper",
+				MetricInterval:   2 * time.Second,
+				ShutdownInterval: 10 * time.Second,
+			},
 		}
 		require.Equal(t, expected, actual)
 	})
@@ -255,6 +286,7 @@ nodes:
 		t.Setenv("KHEPER_API_TIMEOUTS_READ", "10s")
 		t.Setenv("KHEPER_API_TIMEOUTS_READ_HEADER", "10s")
 		t.Setenv("KHEPER_API_TIMEOUTS_WRITE", "10s")
+		t.Setenv("KHEPER_OPEN_TELEMETRY_ENABLED", "true")
 		t.Setenv("KHEPER_GLOBALS_NODE_HANDSHAKE_TIMEOUT", "1s")
 		t.Setenv("KHEPER_GLOBALS_NODE_NODE_CREATION_DELAY", "2ms")
 		t.Setenv("KHEPER_GLOBALS_NODE_PING_INTERVAL", "3s")
@@ -312,6 +344,14 @@ nodes:
 					Versions:  []string{"3.6.0.0", "3.5.0.0"},
 				},
 			},
+			OpenTelemetry: config.OpenTelemetry{
+				Enabled:          true,
+				Host:             "localhost",
+				Port:             4317,
+				ServiceName:      "kheper",
+				MetricInterval:   2 * time.Second,
+				ShutdownInterval: 10 * time.Second,
+			},
 		}
 		require.Equal(t, expected, actual)
 	})
@@ -352,6 +392,13 @@ nodes:
 					ID:        "unique",
 					Versions:  []string{"3.6.0.0", "3.5.0.0"},
 				},
+			},
+			OpenTelemetry: config.OpenTelemetry{
+				Host:             "localhost",
+				Port:             4317,
+				ServiceName:      "kheper",
+				MetricInterval:   2 * time.Second,
+				ShutdownInterval: 10 * time.Second,
 			},
 		}
 		data, err := yaml.Marshal(expected)

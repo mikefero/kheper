@@ -7,6 +7,15 @@ api:
     read_header: 15s
     write: 15s
 
+# OpenTelemetry configuration
+open_telemetry:
+  enabled: false
+  host: localhost
+  port: 4317
+  service_name: kheper
+  metric_interval: 2s
+  shutdown_interval: 10s
+
 # Global configuration for various features of Kheper
 globals:
   # Node Configurations that are shared across all nodes

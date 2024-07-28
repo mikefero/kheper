@@ -19,6 +19,8 @@ import (
 
 	"github.com/mikefero/ankh"
 	"github.com/mikefero/kheper/internal/database"
+	"github.com/mikefero/kheper/internal/monitoring"
+	"go.opentelemetry.io/otel/attribute"
 	"go.uber.org/zap"
 )
 
@@ -30,10 +32,15 @@ type protocolHandlerJSONRPC struct {
 	nodeInfo     Info
 	pingInterval time.Duration
 	pingJitter   time.Duration
-	session      *ankh.Session //nolint:unused
+
+	attributes []attribute.KeyValue
+	metrics    *monitoring.Monitoring
+
+	session *ankh.Session
 }
 
-func (s *protocolHandlerJSONRPC) OnConnectedHandler( /*resp*/ _ *http.Response /*session*/, _ *ankh.Session) error {
+func (s *protocolHandlerJSONRPC) OnConnectedHandler( /*resp*/ _ *http.Response, session *ankh.Session) error {
+	s.session = session
 	panic("not implemented")
 }
 

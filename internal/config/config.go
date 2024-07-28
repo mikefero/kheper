@@ -22,21 +22,27 @@ import (
 )
 
 const (
-	defaultHandshakeTimeout     = 15 * time.Second
-	defaultNodeCreationDelay    = 20 * time.Millisecond
-	defaultPingInterval         = 15 * time.Second
-	defaultPingJitter           = 5 * time.Second
-	defaultReconnectionInterval = 10 * time.Second
-	defaultReconnectionJitter   = 5 * time.Second
-	defaultAPIEnabled           = false
-	defaultAPIPort              = 5000
-	defaultAPIReadTimeout       = 15 * time.Second
-	defaultAPIReadHeaderTimeout = 15 * time.Second
-	defaultAPIWriteTimeout      = 15 * time.Second
-	defaultNodeProtocol         = "standard"
-	defaultNodeHostname         = "sequential"
-	defaultNodeID               = "sequential"
-	defaultNodeInstances        = 1
+	defaultAPIEnabled                    = false
+	defaultAPIPort                       = 5000
+	defaultAPIReadTimeout                = 15 * time.Second
+	defaultAPIReadHeaderTimeout          = 15 * time.Second
+	defaultAPIWriteTimeout               = 15 * time.Second
+	defaultOpenTelemetryEnabled          = false
+	defaultOpenTelemetryHost             = "localhost"
+	defaultOpenTelemetryPort             = 4317
+	defaultOpenTelemetryServiceName      = "kheper"
+	defaultOpenTelemetryMetricInterval   = 2 * time.Second
+	defaultOpenTelemetryShutdownInterval = 10 * time.Second
+	defaultHandshakeTimeout              = 15 * time.Second
+	defaultNodeCreationDelay             = 20 * time.Millisecond
+	defaultPingInterval                  = 15 * time.Second
+	defaultPingJitter                    = 5 * time.Second
+	defaultReconnectionInterval          = 10 * time.Second
+	defaultReconnectionJitter            = 5 * time.Second
+	defaultNodeProtocol                  = "standard"
+	defaultNodeHostname                  = "sequential"
+	defaultNodeID                        = "sequential"
+	defaultNodeInstances                 = 1
 )
 
 var defaultNodeVersions = []string{"3.7.1"}
@@ -44,12 +50,14 @@ var defaultNodeVersions = []string{"3.7.1"}
 // Config is the configuration for the connection and mock nodes to instantiate
 // and run.
 type Config struct {
+	// API is the configuration for the admin API server to run.
+	API API `yaml:"api" mapstructure:"api"`
 	// Globals are the global values for various features of Kheper.
 	Globals Globals `yaml:"globals" mapstructure:"globals"`
 	// Nodes are the nodes to instantiate and run.
 	Nodes []Node `yaml:"nodes" mapstructure:"nodes"`
-	// API is the configuration for the admin API server to run.
-	API API `yaml:"api" mapstructure:"api"`
+	// OpenTelemetry is the configuration values for the OpenTelemetry collector.
+	OpenTelemetry OpenTelemetry `yaml:"open_telemetry" mapstructure:"open_telemetry"`
 }
 
 // API is the configuration for the admin API server to run.
@@ -86,6 +94,25 @@ type GlobalsNode struct {
 	ReconnectionInterval time.Duration `yaml:"reconnection_interval" mapstructure:"reconnection_interval"`
 	// ReconnectionJitter is the jitter to apply to the reconnection interval.
 	ReconnectionJitter time.Duration `yaml:"reconnection_jitter" mapstructure:"reconnection_jitter"`
+}
+
+// OpenTelemetry is the configuration values for the OpenTelemetry collector.
+type OpenTelemetry struct {
+	// Enabled is whether the OpenTelemetry collector should be enabled.
+	Enabled bool `yaml:"enabled" mapstructure:"enabled"`
+	// Host is the host of the OpenTelemetry collector.
+	Host string `yaml:"host" mapstructure:"host"`
+	// Port is the port of the OpenTelemetry collector.
+	Port int `yaml:"port" mapstructure:"port"`
+	// ServiceName is the service name for the traces and metrics sent to the
+	// OpenTelemetry collector.
+	ServiceName string `yaml:"service_name" mapstructure:"service_name"`
+	// MetricInterval is the interval at which the OpenTelemetry collector should
+	// collect metrics.
+	MetricInterval time.Duration `yaml:"metric_interval" mapstructure:"metric_interval"`
+	// ShutdownInterval is the interval at which the OpenTelemetry collector should
+	// shutdown.
+	ShutdownInterval time.Duration `yaml:"shutdown_interval" mapstructure:"shutdown_interval"`
 }
 
 // Node is the configuration for the connection and mock nodes to instantiate
@@ -156,7 +183,15 @@ func NewConfig() (*Config, error) {
 	viper.SetDefault("api.timeouts.read_header", defaultAPIReadHeaderTimeout)
 	viper.SetDefault("api.timeouts.write", defaultAPIWriteTimeout)
 
-	// Connection defaults
+	// OpenTelemetry defaults
+	viper.SetDefault("open_telemetry.enabled", defaultOpenTelemetryEnabled)
+	viper.SetDefault("open_telemetry.host", defaultOpenTelemetryHost)
+	viper.SetDefault("open_telemetry.port", defaultOpenTelemetryPort)
+	viper.SetDefault("open_telemetry.service_name", defaultOpenTelemetryServiceName)
+	viper.SetDefault("open_telemetry.metric_interval", defaultOpenTelemetryMetricInterval)
+	viper.SetDefault("open_telemetry.shutdown_interval", defaultOpenTelemetryShutdownInterval)
+
+	// Node connection defaults
 	viper.SetDefault("globals.node.handshake_timeout", defaultHandshakeTimeout)
 	viper.SetDefault("globals.node.node_creation_delay", defaultNodeCreationDelay)
 	viper.SetDefault("globals.node.ping_interval", defaultPingInterval)

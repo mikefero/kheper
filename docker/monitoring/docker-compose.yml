@@ -1,0 +1,46 @@
+version: '3'
+
+services:
+  grafana:
+    image: grafana/grafana:latest
+    labels:
+      com.kheper.local: true
+    environment:
+      # Disable authentication
+      GF_AUTH_ANONYMOUS_ENABLED: true
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_BASIC_ENABLED: false
+      GF_AUTH_DISABLE_LOGIN_FORM: true
+      GF_AUTH_DISABLE_SIGNOUT_MENU: true
+    ports:
+      - "8080:3000"
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    labels:
+      com.kheper.local: true
+    environment:
+      LOG_LEVEL: debug
+    restart: always
+    ports:
+      - "16686:16686"
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    labels:
+      com.kheper.local: true
+    depends_on:
+      - jaeger
+      - prometheus
+    command: ["--config=/etc/otel/config.yml"]
+    volumes:
+      - ./otel-collector.yml:/etc/otel/config.yml:ro
+    ports:
+      - "4317:4317"
+
+  prometheus:
+    image: prom/prometheus:latest
+    labels:
+      com.kheper.local: true
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro

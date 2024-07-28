@@ -14,6 +14,7 @@
 package database
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"reflect"
@@ -21,6 +22,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/hashicorp/go-memdb"
+	"github.com/mikefero/kheper/internal/monitoring"
 )
 
 var (
@@ -165,7 +167,10 @@ func NewDatabase() (*Database, error) {
 }
 
 // DeleteNode deletes the configuration for the given host and node ID.
-func (d *Database) DeleteNode(controlPlaneHost string, nodeID uuid.UUID) error {
+func (d *Database) DeleteNode(ctx context.Context, controlPlaneHost string, nodeID uuid.UUID) error {
+	_, span := monitoring.Tracer.Start(ctx, "DeleteNode")
+	defer span.End()
+
 	txn := d.db.Txn(true)
 	defer txn.Abort()
 	p := Node{
@@ -183,7 +188,10 @@ func (d *Database) DeleteNode(controlPlaneHost string, nodeID uuid.UUID) error {
 
 // / GetGroups returns a list of all groups for data plane nodes connected to
 // control planes using the in-memory database.
-func (d *Database) GetGroups() ([]string, error) {
+func (d *Database) GetGroups(ctx context.Context) ([]string, error) {
+	_, span := monitoring.Tracer.Start(ctx, "GetGroups")
+	defer span.End()
+
 	txn := d.db.Txn(false)
 	defer txn.Abort()
 	it, err := txn.Get("node", "group")
@@ -211,7 +219,10 @@ func (d *Database) GetGroups() ([]string, error) {
 
 // GetHosts returns a list of all hosts for data plane nodes connected to
 // control planes using the in-memory database.
-func (d *Database) GetHosts() ([]Hosts, error) {
+func (d *Database) GetHosts(ctx context.Context) ([]Hosts, error) {
+	_, span := monitoring.Tracer.Start(ctx, "GetHosts")
+	defer span.End()
+
 	txn := d.db.Txn(false)
 	defer txn.Abort()
 	it, err := txn.Get("node", "control-plane-host")
@@ -251,7 +262,10 @@ func (d *Database) GetHosts() ([]Hosts, error) {
 
 // GetNodesByHost returns a list of all nodes connected to a control plane using
 // the in-memory database.
-func (d *Database) GetNodesByHost(controlPlaneHost string) ([]Node, error) {
+func (d *Database) GetNodesByHost(ctx context.Context, controlPlaneHost string) ([]Node, error) {
+	_, span := monitoring.Tracer.Start(ctx, "GetNodesByHost")
+	defer span.End()
+
 	txn := d.db.Txn(false)
 	defer txn.Abort()
 	it, err := txn.Get("node", "control-plane-host", controlPlaneHost)
@@ -278,7 +292,10 @@ func (d *Database) GetNodesByHost(controlPlaneHost string) ([]Node, error) {
 
 // GetNodesByGroup returns a list of all nodes connected associated with a
 // group using the in-memory database.
-func (d *Database) GetNodesByGroup(group string) ([]Node, error) {
+func (d *Database) GetNodesByGroup(ctx context.Context, group string) ([]Node, error) {
+	_, span := monitoring.Tracer.Start(ctx, "GetNodesByGroup")
+	defer span.End()
+
 	txn := d.db.Txn(false)
 	defer txn.Abort()
 	it, err := txn.Get("node", "group", group)
@@ -303,7 +320,10 @@ func (d *Database) GetNodesByGroup(group string) ([]Node, error) {
 
 // GetNode returns the node for the given host and node ID from the in-memory
 // database.
-func (d *Database) GetNode(host string, nodeID uuid.UUID) (*Node, error) {
+func (d *Database) GetNode(ctx context.Context, host string, nodeID uuid.UUID) (*Node, error) {
+	_, span := monitoring.Tracer.Start(ctx, "GetNode")
+	defer span.End()
+
 	txn := d.db.Txn(false)
 	defer txn.Abort()
 	raw, err := txn.First("node", "id", host, nodeID.String())
@@ -326,7 +346,10 @@ func (d *Database) GetNode(host string, nodeID uuid.UUID) (*Node, error) {
 // SetNode sets the node for the given host and node ID in the in-memory
 // database.
 // Note: The entire node must be set and will overwrite any existing entry.
-func (d *Database) SetNode(node Node) error {
+func (d *Database) SetNode(ctx context.Context, node Node) error {
+	_, span := monitoring.Tracer.Start(ctx, "SetNode")
+	defer span.End()
+
 	txn := d.db.Txn(true)
 	defer txn.Abort()
 	if err := txn.Insert("node", node); err != nil {

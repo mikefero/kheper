@@ -188,7 +188,7 @@ func TestServer(t *testing.T) {
 		t.Run("verify a single group is available", func(t *testing.T) {
 			id := uuid.New()
 			group := "test"
-			err := db.SetNode(database.Node{
+			err := db.SetNode(context.TODO(), database.Node{
 				ControlPlaneHost: "localhost",
 				Group:            &group,
 				Hostname:         "kheper.local",
@@ -197,7 +197,7 @@ func TestServer(t *testing.T) {
 				Version:          "1.2.3",
 			})
 			require.NoError(t, err)
-			defer db.DeleteNode("localhost", id)
+			defer db.DeleteNode(context.TODO(), "localhost", id)
 
 			client.GET("/v1/groups").
 				Expect().
@@ -212,7 +212,7 @@ func TestServer(t *testing.T) {
 			group1 := "test-1"
 			node2ID := uuid.New()
 			group2 := "test-2"
-			err := db.SetNode(database.Node{
+			err := db.SetNode(context.TODO(), database.Node{
 				ControlPlaneHost: "localhost",
 				Group:            &group1,
 				Hostname:         "kheper.local",
@@ -221,7 +221,7 @@ func TestServer(t *testing.T) {
 				Version:          "1.2.3",
 			})
 			require.NoError(t, err)
-			err = db.SetNode(database.Node{
+			err = db.SetNode(context.TODO(), database.Node{
 				ControlPlaneHost: "kheper.example.com",
 				Group:            &group2,
 				Hostname:         "kheper.local",
@@ -230,8 +230,8 @@ func TestServer(t *testing.T) {
 				Version:          "1.2.3.1",
 			})
 			require.NoError(t, err)
-			defer db.DeleteNode("localhost", node1ID)
-			defer db.DeleteNode("kheper.example.com", node2ID)
+			defer db.DeleteNode(context.TODO(), "localhost", node1ID)
+			defer db.DeleteNode(context.TODO(), "kheper.example.com", node2ID)
 
 			client.GET("/v1/groups").
 				Expect().
@@ -254,9 +254,9 @@ func TestServer(t *testing.T) {
 				TLSVersion:       "TLSv1.3",
 				Version:          "1.2.3",
 			}
-			err := db.SetNode(node)
+			err := db.SetNode(context.TODO(), node)
 			require.NoError(t, err)
-			defer db.DeleteNode("localhost", id)
+			defer db.DeleteNode(context.TODO(), "localhost", id)
 
 			expected := []map[string]interface{}{
 				{
@@ -300,12 +300,12 @@ func TestServer(t *testing.T) {
 				TLSVersion:       "TLSv1.3",
 				Version:          "1.2.3.1",
 			}
-			err := db.SetNode(node1)
+			err := db.SetNode(context.TODO(), node1)
 			require.NoError(t, err)
-			err = db.SetNode(node2)
+			err = db.SetNode(context.TODO(), node2)
 			require.NoError(t, err)
-			defer db.DeleteNode("localhost", node1ID)
-			defer db.DeleteNode("localhost", node2ID)
+			defer db.DeleteNode(context.TODO(), "localhost", node1ID)
+			defer db.DeleteNode(context.TODO(), "localhost", node2ID)
 
 			expected := []map[string]interface{}{
 				{
@@ -358,12 +358,12 @@ func TestServer(t *testing.T) {
 				TLSVersion:       "TLSv1.3",
 				Version:          "1.2.3.1",
 			}
-			err := db.SetNode(node1)
+			err := db.SetNode(context.TODO(), node1)
 			require.NoError(t, err)
-			err = db.SetNode(node2)
+			err = db.SetNode(context.TODO(), node2)
 			require.NoError(t, err)
-			defer db.DeleteNode("localhost", node1ID)
-			defer db.DeleteNode("kheper.example.com", node2ID)
+			defer db.DeleteNode(context.TODO(), "localhost", node1ID)
+			defer db.DeleteNode(context.TODO(), "kheper.example.com", node2ID)
 
 			expected := []map[string]interface{}{
 				{
@@ -410,7 +410,7 @@ func TestServer(t *testing.T) {
 
 		t.Run("verify a single host is available", func(t *testing.T) {
 			id := uuid.New()
-			err := db.SetNode(database.Node{
+			err := db.SetNode(context.TODO(), database.Node{
 				ControlPlaneHost: "localhost",
 				Hostname:         "kheper.local",
 				ID:               id.String(),
@@ -418,7 +418,7 @@ func TestServer(t *testing.T) {
 				Version:          "1.2.3",
 			})
 			require.NoError(t, err)
-			defer db.DeleteNode("localhost", id)
+			defer db.DeleteNode(context.TODO(), "localhost", id)
 
 			client.GET("/v1/hosts").
 				Expect().
@@ -431,7 +431,7 @@ func TestServer(t *testing.T) {
 		t.Run("verify multiple hosts are available", func(t *testing.T) {
 			node1ID := uuid.New()
 			node2ID := uuid.New()
-			err := db.SetNode(database.Node{
+			err := db.SetNode(context.TODO(), database.Node{
 				ControlPlaneHost: "localhost",
 				Hostname:         "kheper.local",
 				ID:               node1ID.String(),
@@ -439,7 +439,7 @@ func TestServer(t *testing.T) {
 				Version:          "1.2.3",
 			})
 			require.NoError(t, err)
-			err = db.SetNode(database.Node{
+			err = db.SetNode(context.TODO(), database.Node{
 				ControlPlaneHost: "kheper.example.com",
 				Hostname:         "kheper.local",
 				ID:               node2ID.String(),
@@ -447,8 +447,8 @@ func TestServer(t *testing.T) {
 				Version:          "1.2.3.1",
 			})
 			require.NoError(t, err)
-			defer db.DeleteNode("localhost", node1ID)
-			defer db.DeleteNode("kheper.example.com", node2ID)
+			defer db.DeleteNode(context.TODO(), "localhost", node1ID)
+			defer db.DeleteNode(context.TODO(), "kheper.example.com", node2ID)
 
 			client.GET("/v1/hosts").
 				Expect().
@@ -465,7 +465,7 @@ func TestServer(t *testing.T) {
 			node1ID := uuid.New()
 			node2ID := uuid.New()
 			group := "test"
-			err := db.SetNode(database.Node{
+			err := db.SetNode(context.TODO(), database.Node{
 				ControlPlaneHost: "localhost",
 				Group:            &group,
 				Hostname:         "kheper.local",
@@ -474,7 +474,7 @@ func TestServer(t *testing.T) {
 				Version:          "1.2.3",
 			})
 			require.NoError(t, err)
-			err = db.SetNode(database.Node{
+			err = db.SetNode(context.TODO(), database.Node{
 				ControlPlaneHost: "kheper.example.com",
 				Hostname:         "kheper.local",
 				ID:               node2ID.String(),
@@ -482,8 +482,8 @@ func TestServer(t *testing.T) {
 				Version:          "1.2.3.1",
 			})
 			require.NoError(t, err)
-			defer db.DeleteNode("localhost", node1ID)
-			defer db.DeleteNode("kheper.example.com", node2ID)
+			defer db.DeleteNode(context.TODO(), "localhost", node1ID)
+			defer db.DeleteNode(context.TODO(), "kheper.example.com", node2ID)
 
 			client.GET("/v1/hosts").
 				Expect().
@@ -518,9 +518,9 @@ func TestServer(t *testing.T) {
 				TLSVersion:       "TLSv1.3",
 				Version:          "1.2.3",
 			}
-			err := db.SetNode(node)
+			err := db.SetNode(context.TODO(), node)
 			require.NoError(t, err)
-			defer db.DeleteNode("localhost", id)
+			defer db.DeleteNode(context.TODO(), "localhost", id)
 
 			expected := []map[string]interface{}{
 				{
@@ -560,12 +560,12 @@ func TestServer(t *testing.T) {
 				TLSVersion:       "TLSv1.3",
 				Version:          "1.2.3.1",
 			}
-			err := db.SetNode(node1)
+			err := db.SetNode(context.TODO(), node1)
 			require.NoError(t, err)
-			err = db.SetNode(node2)
+			err = db.SetNode(context.TODO(), node2)
 			require.NoError(t, err)
-			defer db.DeleteNode("localhost", node1ID)
-			defer db.DeleteNode("localhost", node2ID)
+			defer db.DeleteNode(context.TODO(), "localhost", node1ID)
+			defer db.DeleteNode(context.TODO(), "localhost", node2ID)
 
 			expected := []map[string]interface{}{
 				{
@@ -612,12 +612,12 @@ func TestServer(t *testing.T) {
 				TLSVersion:       "TLSv1.3",
 				Version:          "1.2.3.1",
 			}
-			err := db.SetNode(node1)
+			err := db.SetNode(context.TODO(), node1)
 			require.NoError(t, err)
-			err = db.SetNode(node2)
+			err = db.SetNode(context.TODO(), node2)
 			require.NoError(t, err)
-			defer db.DeleteNode("localhost", node1ID)
-			defer db.DeleteNode("kheper.example.com", node2ID)
+			defer db.DeleteNode(context.TODO(), "localhost", node1ID)
+			defer db.DeleteNode(context.TODO(), "kheper.example.com", node2ID)
 
 			expected := []map[string]interface{}{
 				{
@@ -674,12 +674,12 @@ func TestServer(t *testing.T) {
 				TLSVersion:       "TLSv1.3",
 				Version:          "1.2.3.1",
 			}
-			err := db.SetNode(node1)
+			err := db.SetNode(context.TODO(), node1)
 			require.NoError(t, err)
-			err = db.SetNode(node2)
+			err = db.SetNode(context.TODO(), node2)
 			require.NoError(t, err)
-			defer db.DeleteNode("localhost", node1ID)
-			defer db.DeleteNode("kheper.example.com", node2ID)
+			defer db.DeleteNode(context.TODO(), "localhost", node1ID)
+			defer db.DeleteNode(context.TODO(), "kheper.example.com", node2ID)
 
 			expected := []map[string]interface{}{
 				{
@@ -725,9 +725,9 @@ func TestServer(t *testing.T) {
 				TLSVersion:       "TLSv1.3",
 				Version:          "1.2.3",
 			}
-			err := db.SetNode(node)
+			err := db.SetNode(context.TODO(), node)
 			require.NoError(t, err)
-			defer db.DeleteNode("localhost", id)
+			defer db.DeleteNode(context.TODO(), "localhost", id)
 
 			expected := map[string]interface{}{
 				"cipher_suite": node.CipherSuite,
@@ -758,9 +758,9 @@ func TestServer(t *testing.T) {
 				TLSVersion:       "TLSv1.3",
 				Version:          "1.2.3",
 			}
-			err := db.SetNode(node)
+			err := db.SetNode(context.TODO(), node)
 			require.NoError(t, err)
-			defer db.DeleteNode("localhost", id)
+			defer db.DeleteNode(context.TODO(), "localhost", id)
 
 			expected := map[string]interface{}{
 				"cipher_suite": node.CipherSuite,
@@ -800,12 +800,12 @@ func TestServer(t *testing.T) {
 				TLSVersion:       "TLSv1.3",
 				Version:          "1.2.3.1",
 			}
-			err := db.SetNode(node1)
+			err := db.SetNode(context.TODO(), node1)
 			require.NoError(t, err)
-			err = db.SetNode(node2)
+			err = db.SetNode(context.TODO(), node2)
 			require.NoError(t, err)
-			defer db.DeleteNode("localhost", node1ID)
-			defer db.DeleteNode("localhost", node2ID)
+			defer db.DeleteNode(context.TODO(), "localhost", node1ID)
+			defer db.DeleteNode(context.TODO(), "localhost", node2ID)
 
 			expected := map[string]interface{}{
 				"cipher_suite": node1.CipherSuite,
@@ -858,12 +858,12 @@ func TestServer(t *testing.T) {
 				TLSVersion:       "TLSv1.3",
 				Version:          "1.2.3.1",
 			}
-			err := db.SetNode(node1)
+			err := db.SetNode(context.TODO(), node1)
 			require.NoError(t, err)
-			err = db.SetNode(node2)
+			err = db.SetNode(context.TODO(), node2)
 			require.NoError(t, err)
-			defer db.DeleteNode("localhost", node1ID)
-			defer db.DeleteNode("kheper.example.com", node2ID)
+			defer db.DeleteNode(context.TODO(), "localhost", node1ID)
+			defer db.DeleteNode(context.TODO(), "kheper.example.com", node2ID)
 
 			expected := map[string]interface{}{
 				"cipher_suite": node1.CipherSuite,
@@ -906,9 +906,9 @@ func TestServer(t *testing.T) {
 				TLSVersion:       "TLSv1.3",
 				Version:          "1.2.3",
 			}
-			err := db.SetNode(node)
+			err := db.SetNode(context.TODO(), node)
 			require.NoError(t, err)
-			defer db.DeleteNode("localhost", id)
+			defer db.DeleteNode(context.TODO(), "localhost", id)
 
 			expected := `{
 				"message": "resource not found: node"
@@ -931,9 +931,9 @@ func TestServer(t *testing.T) {
 				TLSVersion:       "TLSv1.3",
 				Version:          "1.2.3",
 			}
-			err := db.SetNode(node)
+			err := db.SetNode(context.TODO(), node)
 			require.NoError(t, err)
-			defer db.DeleteNode("localhost", id)
+			defer db.DeleteNode(context.TODO(), "localhost", id)
 
 			expected := `{
 				"message": "resource not found: node"
@@ -956,9 +956,9 @@ func TestServer(t *testing.T) {
 				TLSVersion:       "TLSv1.3",
 				Version:          "1.2.3",
 			}
-			err := db.SetNode(node)
+			err := db.SetNode(context.TODO(), node)
 			require.NoError(t, err)
-			defer db.DeleteNode("localhost", id)
+			defer db.DeleteNode(context.TODO(), "localhost", id)
 
 			expected := `{
 				"detail": "internal server error: unable to retrieve config_table",
@@ -987,9 +987,9 @@ func TestServer(t *testing.T) {
 				TLSVersion: "TLSv1.3",
 				Version:    "1.2.3",
 			}
-			err := db.SetNode(node)
+			err := db.SetNode(context.TODO(), node)
 			require.NoError(t, err)
-			defer db.DeleteNode("localhost", id)
+			defer db.DeleteNode(context.TODO(), "localhost", id)
 
 			expected := `{
 				"message": "resource not found: services"
@@ -1014,9 +1014,9 @@ func TestServer(t *testing.T) {
 				TLSVersion: "TLSv1.3",
 				Version:    "1.2.3",
 			}
-			err := db.SetNode(node)
+			err := db.SetNode(context.TODO(), node)
 			require.NoError(t, err)
-			defer db.DeleteNode("localhost", id)
+			defer db.DeleteNode(context.TODO(), "localhost", id)
 
 			expected := `{
 				"detail": "internal server error: unable to cast config_table",
@@ -1045,9 +1045,9 @@ func TestServer(t *testing.T) {
 				TLSVersion: "TLSv1.3",
 				Version:    "1.2.3",
 			}
-			err := db.SetNode(node)
+			err := db.SetNode(context.TODO(), node)
 			require.NoError(t, err)
-			defer db.DeleteNode("localhost", id)
+			defer db.DeleteNode(context.TODO(), "localhost", id)
 
 			expected := `{
 				"detail": "internal server error: unable to cast resources",
@@ -1078,9 +1078,9 @@ func TestServer(t *testing.T) {
 				TLSVersion: "TLSv1.3",
 				Version:    "1.2.3",
 			}
-			err := db.SetNode(node)
+			err := db.SetNode(context.TODO(), node)
 			require.NoError(t, err)
-			defer db.DeleteNode("localhost", id)
+			defer db.DeleteNode(context.TODO(), "localhost", id)
 
 			expected := `{
 				"detail": "internal server error: unable to cast resource",
@@ -1124,9 +1124,9 @@ func TestServer(t *testing.T) {
 				TLSVersion: "TLSv1.3",
 				Version:    "1.2.3",
 			}
-			err := db.SetNode(node)
+			err := db.SetNode(context.TODO(), node)
 			require.NoError(t, err)
-			defer db.DeleteNode("localhost", id)
+			defer db.DeleteNode(context.TODO(), "localhost", id)
 
 			expected := `{
 				"data": [

@@ -31,10 +31,19 @@ import (
 
 	"github.com/mikefero/ankh"
 	"github.com/mikefero/kheper/internal/database"
+	"github.com/mikefero/kheper/internal/monitoring"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 )
 
-var defaultConfigurationHash = strings.Repeat("0", 32)
+var (
+	defaultConfigurationHash = strings.Repeat("0", 32)
+	nodes                    = map[string]int64{}
+	nodesMutex               sync.Mutex
+)
 
 type protocolHandlerStandard struct {
 	cancel       context.CancelFunc
@@ -43,7 +52,11 @@ type protocolHandlerStandard struct {
 	nodeInfo     Info
 	pingInterval time.Duration
 	pingJitter   time.Duration
-	session      *ankh.Session
+
+	attributes []attribute.KeyValue
+	metrics    *monitoring.Monitoring
+
+	session *ankh.Session
 
 	// once is used to ensure that the node responds to a new configuration with a
 	// ping immediately after receiving it.
@@ -51,10 +64,37 @@ type protocolHandlerStandard struct {
 }
 
 func (s *protocolHandlerStandard) OnConnectedHandler(_ *http.Response, session *ankh.Session) error {
+	ctx, span := monitoring.Tracer.Start(context.Background(), "OnConnectedHandler",
+		trace.WithAttributes(s.attributes...))
+	defer span.End()
+	hostCount, groupCount, totalCount := addNode(ctx, s.nodeInfo.Host, s.nodeInfo.Group)
+	s.metrics.HostConnectionGauge.Record(ctx, hostCount,
+		metric.WithAttributes(attribute.String("host", s.nodeInfo.Host)))
+	if s.nodeInfo.Group != nil {
+		s.metrics.GroupConnectionGauge.Record(ctx, groupCount,
+			metric.WithAttributes(attribute.String("group", *s.nodeInfo.Group)))
+	}
+	s.metrics.ConnectionGauge.Record(ctx, totalCount, metric.WithAttributes(s.attributes...))
+
 	s.logger.Info("connected")
 	s.session = session
-	if err := sendInfo(session, s.nodeInfo); err != nil {
+	if err := sendInfo(ctx, session, s.nodeInfo); err != nil {
 		return fmt.Errorf("unable to send info message: %w", err)
+	}
+
+	// Add the node to the database
+	node := database.Node{
+		CipherSuite:      tls.CipherSuiteName(s.session.ConnectionState.CipherSuite),
+		ControlPlaneHost: s.nodeInfo.Host,
+		Hostname:         s.nodeInfo.Hostname,
+		ID:               s.nodeInfo.ID.String(),
+		Payload:          map[string]interface{}{},
+		TLSVersion:       tlsVersionString(s.session.ConnectionState.Version),
+		Version:          s.nodeInfo.Version.String(),
+		Group:            s.nodeInfo.Group,
+	}
+	if err := s.db.SetNode(ctx, node); err != nil {
+		return fmt.Errorf("failed to add node to database: %w", err)
 	}
 
 	// Create a jittered ping interval function
@@ -72,19 +112,22 @@ func (s *protocolHandlerStandard) OnConnectedHandler(_ *http.Response, session *
 	}
 
 	// Start the ping interval
-	ctx, cancel := context.WithCancel(context.Background())
-	s.cancel = cancel
+	pingCtx, pingCancel := context.WithCancel(context.Background())
+	s.cancel = pingCancel
 	go func() {
-		defer cancel()
+		defer pingCancel()
 
 		for {
 			select {
-			case <-ctx.Done():
+			case <-pingCtx.Done():
 				return
 			case <-time.After(pingInterval()):
-				if err := s.ping(); err != nil {
+				pingIntervalCtx, span := otel.Tracer("").Start(pingCtx, "ping-interval",
+					trace.WithAttributes(s.attributes...))
+				if err := s.ping(pingIntervalCtx); err != nil {
 					s.logger.Error("unable to send ping", zap.Error(err))
 				}
+				span.End()
 			}
 		}
 	}()
@@ -93,17 +136,40 @@ func (s *protocolHandlerStandard) OnConnectedHandler(_ *http.Response, session *
 }
 
 func (s *protocolHandlerStandard) OnDisconnectionHandler() {
-	if err := s.db.DeleteNode(s.nodeInfo.Host, s.nodeInfo.ID); err != nil {
+	ctx, span := monitoring.Tracer.Start(context.Background(), "OnDisconnectionHandler",
+		trace.WithAttributes(s.attributes...))
+	defer span.End()
+	hostCount, groupCount, totalCount := removeNode(ctx, s.nodeInfo.Host, s.nodeInfo.Group)
+	s.metrics.HostConnectionGauge.Record(ctx, hostCount,
+		metric.WithAttributes(attribute.String("host", s.nodeInfo.Host)))
+	if s.nodeInfo.Group != nil {
+		s.metrics.GroupConnectionGauge.Record(ctx, groupCount,
+			metric.WithAttributes(attribute.String("group", *s.nodeInfo.Group)))
+	}
+	s.metrics.ConnectionGauge.Record(ctx, totalCount, metric.WithAttributes(s.attributes...))
+
+	if err := s.db.DeleteNode(ctx, s.nodeInfo.Host, s.nodeInfo.ID); err != nil {
 		s.logger.Error("unable to delete configuration", zap.Error(err))
 	}
 	s.logger.Info("disconnected")
 }
 
 func (s *protocolHandlerStandard) OnDisconnectionErrorHandler(err error) {
+	ctx, span := monitoring.Tracer.Start(context.Background(), "OnDisconnectionErrorHandler",
+		trace.WithAttributes(s.attributes...))
+	defer span.End()
+	s.metrics.DisconnectionErrorCount.Add(ctx, 1, metric.WithAttributes(s.attributes...))
+
 	s.logger.Error("disconnection error", zap.Error(err))
 }
 
 func (s *protocolHandlerStandard) OnPongHandler(appData string) {
+	ctx, span := monitoring.Tracer.Start(context.Background(),
+		"OnPongHandler",
+		trace.WithAttributes(s.attributes...))
+	defer span.End()
+	s.metrics.PongCount.Add(ctx, 1, metric.WithAttributes(s.attributes...))
+
 	if len(appData) > 0 {
 		s.logger.Debug("pong", zap.String("app-data", appData))
 	} else {
@@ -112,8 +178,15 @@ func (s *protocolHandlerStandard) OnPongHandler(appData string) {
 }
 
 func (s *protocolHandlerStandard) OnReadMessageHandler(messageType int, message []byte) {
+	ctx, span := monitoring.Tracer.Start(context.Background(), "OnReadMessageHandler",
+		trace.WithAttributes(s.attributes...))
+	defer span.End()
+	span.SetAttributes(attribute.Float64("compressed-size", float64(len(message))/1024))
+	s.metrics.ReadMessageCount.Add(ctx, 1, metric.WithAttributes(s.attributes...))
+
 	// Unzip and parse the message into a configuration format
 	s.logger.Debug("read message", zap.Int("message-type", messageType))
+	s.metrics.UncompressedSize.Record(ctx, float64(len(message))/1024, metric.WithAttributes(s.attributes...))
 	reader, err := gzip.NewReader(bytes.NewReader(message))
 	if err != nil {
 		s.logger.Error("failed to create gzip reader to unzip message", zap.Error(err))
@@ -124,14 +197,17 @@ func (s *protocolHandlerStandard) OnReadMessageHandler(messageType int, message 
 		s.logger.Error("failed to read contents of gzip reader to unzip message", zap.Error(err))
 		return
 	}
+	span.SetAttributes(attribute.Float64("uncompressed-size", float64(len(bytes))/1024))
+	s.metrics.UncompressedSize.Record(ctx, float64(len(bytes))/1024, metric.WithAttributes(s.attributes...))
 	var configuration map[string]interface{}
 	if err := json.Unmarshal(bytes, &configuration); err != nil {
 		s.logger.Error("failed to unmarshal configuration", zap.Error(err))
 		return
 	}
+	span.SetAttributes(attribute.String("hash", fmt.Sprintf("%v", configuration["config_hash"])))
 
-	// Set the configuration
-	payload := database.Node{
+	// Set the node configuration
+	node := database.Node{
 		CipherSuite:      tls.CipherSuiteName(s.session.ConnectionState.CipherSuite),
 		ControlPlaneHost: s.nodeInfo.Host,
 		Group:            s.nodeInfo.Group,
@@ -141,7 +217,7 @@ func (s *protocolHandlerStandard) OnReadMessageHandler(messageType int, message 
 		TLSVersion:       tlsVersionString(s.session.ConnectionState.Version),
 		Version:          s.nodeInfo.Version.String(),
 	}
-	if err := s.db.SetNode(payload); err != nil {
+	if err := s.db.SetNode(ctx, node); err != nil {
 		s.logger.Error("failed to set configuration", zap.Error(err))
 		return
 	}
@@ -150,21 +226,35 @@ func (s *protocolHandlerStandard) OnReadMessageHandler(messageType int, message 
 
 	// Respond immediately with a ping when receiving a new configuration
 	s.once.Do(func() {
-		if err := s.ping(); err != nil {
+		if err := s.ping(ctx); err != nil {
 			s.logger.Error("unable to send ping", zap.Error(err))
 		}
 	})
 }
 
 func (s *protocolHandlerStandard) OnReadMessageErrorHandler(err error) {
+	ctx, span := monitoring.Tracer.Start(context.Background(), "OnReadMessageErrorHandler",
+		trace.WithAttributes(s.attributes...))
+	defer span.End()
+	s.metrics.ReadMessageErrorCount.Add(ctx, 1, metric.WithAttributes(s.attributes...))
+
 	s.logger.Error("read message error", zap.Error(err))
 }
 
 func (s *protocolHandlerStandard) OnReadMessagePanicHandler(err error) {
+	ctx, span := monitoring.Tracer.Start(context.Background(), "OnReadMessagePanicHandler",
+		trace.WithAttributes(s.attributes...))
+	defer span.End()
+	s.metrics.ReadMessagePanicCount.Add(ctx, 1, metric.WithAttributes(s.attributes...))
+
 	s.logger.Error("read message panic", zap.Error(err))
 }
 
 func (s *protocolHandlerStandard) close() error {
+	_, span := monitoring.Tracer.Start(context.Background(), "close",
+		trace.WithAttributes(s.attributes...))
+	defer span.End()
+
 	if s.session == nil {
 		return errors.New("client session is unavailable")
 	}
@@ -179,7 +269,11 @@ func (s *protocolHandlerStandard) close() error {
 	return nil
 }
 
-func (s *protocolHandlerStandard) ping() error {
+func (s *protocolHandlerStandard) ping(ctx context.Context) error {
+	ctx, span := monitoring.Tracer.Start(ctx, "ping")
+	defer span.End()
+	s.metrics.PingCount.Add(ctx, 1, metric.WithAttributes(s.attributes...))
+
 	if s.session == nil {
 		return errors.New("client session is unavailable")
 	}
@@ -192,8 +286,12 @@ func (s *protocolHandlerStandard) ping() error {
 	return nil
 }
 
-func sendInfo(session *ankh.Session, info Info) error {
-	basicInfo := GetStandardBasicInfo(info.Version.String())
+func sendInfo(ctx context.Context, session *ankh.Session, info Info) error {
+	ctx, span := monitoring.Tracer.Start(ctx, "sendInfo")
+	defer span.End()
+
+	// Create the basic info message
+	basicInfo := GetStandardBasicInfo(ctx, info.Version.String())
 	jsonBasicInfo, err := json.Marshal(basicInfo)
 	if err != nil {
 		return fmt.Errorf("unable to marshal basic info message: %w", err)
@@ -204,23 +302,11 @@ func sendInfo(session *ankh.Session, info Info) error {
 	return nil
 }
 
-func tlsVersionString(version uint16) string {
-	switch version {
-	case tls.VersionTLS10:
-		return "TLS 1.0"
-	case tls.VersionTLS11:
-		return "TLS 1.1"
-	case tls.VersionTLS12:
-		return "TLS 1.2"
-	case tls.VersionTLS13:
-		return "TLS 1.3"
-	default:
-		return "Unknown"
-	}
-}
-
 func (s *protocolHandlerStandard) getConfigurationHash() string {
-	node, err := s.db.GetNode(s.nodeInfo.Host, s.nodeInfo.ID)
+	ctx, span := monitoring.Tracer.Start(context.Background(), "getConfigurationHash")
+	defer span.End()
+
+	node, err := s.db.GetNode(ctx, s.nodeInfo.Host, s.nodeInfo.ID)
 	if err != nil {
 		s.logger.Error("unable to get node", zap.Error(err))
 		return defaultConfigurationHash
@@ -232,4 +318,38 @@ func (s *protocolHandlerStandard) getConfigurationHash() string {
 		return defaultConfigurationHash
 	}
 	return fmt.Sprintf("%v", configurationHash)
+}
+
+func addNode(ctx context.Context, host string, group *string) (int64, int64, int64) {
+	_, span := monitoring.Tracer.Start(ctx, "addNode")
+	defer span.End()
+
+	nodesMutex.Lock()
+	defer nodesMutex.Unlock()
+
+	nodes[host]++
+	nodes["total"]++
+	var groupCount int64
+	if group != nil {
+		nodes[*group]++
+		groupCount = nodes[*group]
+	}
+	return nodes[host], groupCount, nodes["total"]
+}
+
+func removeNode(ctx context.Context, host string, group *string) (int64, int64, int64) {
+	_, span := monitoring.Tracer.Start(ctx, "removeNode")
+	defer span.End()
+
+	nodesMutex.Lock()
+	defer nodesMutex.Unlock()
+
+	nodes[host]--
+	nodes["total"]--
+	var groupCount int64
+	if group != nil {
+		nodes[*group]--
+		groupCount = nodes[*group]
+	}
+	return nodes[host], groupCount, nodes["total"]
 }

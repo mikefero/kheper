@@ -14,9 +14,11 @@
 package node
 
 import (
+	"context"
 	"embed"
 	"fmt"
 
+	"github.com/mikefero/kheper/internal/monitoring"
 	"gopkg.in/yaml.v3"
 )
 
@@ -38,7 +40,11 @@ type basicInfoConfig struct {
 // GetStandardBasicInfo returns the configuration information to be sent to the
 // control plane. If the version is not found, a default configuration is
 // returned.
-func GetStandardBasicInfo(version string) map[string]interface{} {
+func GetStandardBasicInfo(ctx context.Context, version string) map[string]interface{} {
+	_, span := monitoring.Tracer.Start(ctx, "GetStandardBasicInfo")
+	defer span.End()
+
+	// Get the plugins for the version
 	var versionPlugins []string
 	var ok bool
 	// Check if the version is already in the map

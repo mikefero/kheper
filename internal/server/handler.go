@@ -14,6 +14,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -22,6 +23,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/mikefero/kheper/internal/api"
 	"github.com/mikefero/kheper/internal/database"
+	"github.com/mikefero/kheper/internal/monitoring"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 	"go.uber.org/zap"
 )
@@ -51,14 +53,17 @@ type v1Node struct {
 }
 
 func (h *handler) GetV1Groups(w http.ResponseWriter, r *http.Request) {
-	groups, err := h.db.GetGroups()
+	ctx, span := monitoring.Tracer.Start(r.Context(), "GetV1Groups")
+	defer span.End()
+
+	groups, err := h.db.GetGroups(ctx)
 	if err != nil {
 		h.logger.Error("unable to retrieve groups",
 			zap.String("method", r.Method),
 			zap.String("remote-address", r.RemoteAddr),
 			zap.String("url", r.URL.String()),
 			zap.Error(err))
-		h.internalServerError(w, r, err)
+		h.internalServerError(ctx, w, r, err)
 		return
 	}
 
@@ -71,14 +76,17 @@ func (h *handler) GetV1Groups(w http.ResponseWriter, r *http.Request) {
 			zap.String("remote-address", r.RemoteAddr),
 			zap.String("url", r.URL.String()),
 			zap.Error(err))
-		h.internalServerError(w, r, err)
+		h.internalServerError(ctx, w, r, err)
 		return
 	}
 }
 
 //nolint:dupl
 func (h *handler) GetV1GroupsGroup(w http.ResponseWriter, r *http.Request, group api.GroupParameter) {
-	nodes, err := h.db.GetNodesByGroup(group)
+	ctx, span := monitoring.Tracer.Start(r.Context(), "GetV1GroupsGroup")
+	defer span.End()
+
+	nodes, err := h.db.GetNodesByGroup(ctx, group)
 	if err != nil && !errors.Is(err, database.ErrHostNotFound) {
 		h.logger.Error("unable to retrieve nodes",
 			zap.String("group", group),
@@ -86,7 +94,7 @@ func (h *handler) GetV1GroupsGroup(w http.ResponseWriter, r *http.Request, group
 			zap.String("remote-address", r.RemoteAddr),
 			zap.String("url", r.URL.String()),
 			zap.Error(err))
-		h.internalServerError(w, r, err)
+		h.internalServerError(ctx, w, r, err)
 		return
 	} else if errors.Is(err, database.ErrHostNotFound) {
 		h.logger.Debug("group not found",
@@ -94,7 +102,7 @@ func (h *handler) GetV1GroupsGroup(w http.ResponseWriter, r *http.Request, group
 			zap.String("method", r.Method),
 			zap.String("remote-address", r.RemoteAddr),
 			zap.String("url", r.URL.String()))
-		h.notFoundError(w, r, "group")
+		h.notFoundError(ctx, w, r, "group")
 		return
 	}
 
@@ -111,7 +119,7 @@ func (h *handler) GetV1GroupsGroup(w http.ResponseWriter, r *http.Request, group
 				zap.String("remote-address", r.RemoteAddr),
 				zap.String("url", r.URL.String()),
 				zap.Error(err))
-			h.internalServerError(w, r, err)
+			h.internalServerError(ctx, w, r, err)
 			return
 		}
 		cipherSuite := node.CipherSuite
@@ -145,14 +153,17 @@ func (h *handler) GetV1GroupsGroup(w http.ResponseWriter, r *http.Request, group
 // GetHosts will return a list of all hosts connected to control plane(s) using
 // the in-memory database and return them as a JSON response.
 func (h *handler) GetV1Hosts(w http.ResponseWriter, r *http.Request) {
-	hosts, err := h.db.GetHosts()
+	ctx, span := monitoring.Tracer.Start(r.Context(), "GetV1Hosts")
+	defer span.End()
+
+	hosts, err := h.db.GetHosts(ctx)
 	if err != nil {
 		h.logger.Error("unable to retrieve hosts",
 			zap.String("method", r.Method),
 			zap.String("remote-address", r.RemoteAddr),
 			zap.String("url", r.URL.String()),
 			zap.Error(err))
-		h.internalServerError(w, r, err)
+		h.internalServerError(ctx, w, r, err)
 		return
 	}
 
@@ -173,7 +184,7 @@ func (h *handler) GetV1Hosts(w http.ResponseWriter, r *http.Request) {
 			zap.String("remote-address", r.RemoteAddr),
 			zap.String("url", r.URL.String()),
 			zap.Error(err))
-		h.internalServerError(w, r, err)
+		h.internalServerError(ctx, w, r, err)
 		return
 	}
 }
@@ -183,7 +194,10 @@ func (h *handler) GetV1Hosts(w http.ResponseWriter, r *http.Request) {
 //
 //nolint:dupl
 func (h *handler) GetV1HostsHost(w http.ResponseWriter, r *http.Request, host api.HostParameter) {
-	nodes, err := h.db.GetNodesByHost(host)
+	ctx, span := monitoring.Tracer.Start(r.Context(), "GetV1HostsHost")
+	defer span.End()
+
+	nodes, err := h.db.GetNodesByHost(ctx, host)
 	if err != nil && !errors.Is(err, database.ErrHostNotFound) {
 		h.logger.Error("unable to retrieve nodes",
 			zap.String("host", host),
@@ -191,7 +205,7 @@ func (h *handler) GetV1HostsHost(w http.ResponseWriter, r *http.Request, host ap
 			zap.String("remote-address", r.RemoteAddr),
 			zap.String("url", r.URL.String()),
 			zap.Error(err))
-		h.internalServerError(w, r, err)
+		h.internalServerError(ctx, w, r, err)
 		return
 	} else if errors.Is(err, database.ErrHostNotFound) {
 		h.logger.Debug("host not found",
@@ -199,7 +213,7 @@ func (h *handler) GetV1HostsHost(w http.ResponseWriter, r *http.Request, host ap
 			zap.String("method", r.Method),
 			zap.String("remote-address", r.RemoteAddr),
 			zap.String("url", r.URL.String()))
-		h.notFoundError(w, r, "host")
+		h.notFoundError(ctx, w, r, "host")
 		return
 	}
 
@@ -216,7 +230,7 @@ func (h *handler) GetV1HostsHost(w http.ResponseWriter, r *http.Request, host ap
 				zap.String("remote-address", r.RemoteAddr),
 				zap.String("url", r.URL.String()),
 				zap.Error(err))
-			h.internalServerError(w, r, err)
+			h.internalServerError(ctx, w, r, err)
 			return
 		}
 		cipherSuite := node.CipherSuite
@@ -250,11 +264,14 @@ func (h *handler) GetV1HostsHost(w http.ResponseWriter, r *http.Request, host ap
 // GetHostNodeId will return a node from the in-memory database and return it as
 // a JSON response.
 //
-//nolint:revive,stylecheck
+//nolint:dupl,revive,stylecheck
 func (h *handler) GetV1HostsHostNodeId(w http.ResponseWriter, r *http.Request, host api.HostParameter,
 	nodeId api.NodeIdParameter,
 ) {
-	node, err := h.db.GetNode(host, nodeId)
+	ctx, span := monitoring.Tracer.Start(r.Context(), "GetV1HostsHostNodeId")
+	defer span.End()
+
+	node, err := h.db.GetNode(ctx, host, nodeId)
 	if err != nil && !errors.Is(err, database.ErrNodeNotFound) {
 		h.logger.Error("unable to retrieve node",
 			zap.String("host", host),
@@ -263,7 +280,7 @@ func (h *handler) GetV1HostsHostNodeId(w http.ResponseWriter, r *http.Request, h
 			zap.String("remote-address", r.RemoteAddr),
 			zap.String("url", r.URL.String()),
 			zap.Error(err))
-		h.internalServerError(w, r, err)
+		h.internalServerError(ctx, w, r, err)
 		return
 	} else if errors.Is(err, database.ErrNodeNotFound) {
 		h.logger.Debug("node not found",
@@ -272,7 +289,7 @@ func (h *handler) GetV1HostsHostNodeId(w http.ResponseWriter, r *http.Request, h
 			zap.String("method", r.Method),
 			zap.String("remote-address", r.RemoteAddr),
 			zap.String("url", r.URL.String()))
-		h.notFoundError(w, r, "node")
+		h.notFoundError(ctx, w, r, "node")
 		return
 	}
 
@@ -305,11 +322,14 @@ func (h *handler) GetV1HostsHostNodeId(w http.ResponseWriter, r *http.Request, h
 // GetHostNodeIdResource will return a specific resource from a node payload
 // from the in-memory database and return it as a JSON response.
 //
-//nolint:revive,stylecheck
+//nolint:dupl,revive,stylecheck
 func (h *handler) GetV1HostsHostNodeIdResource(w http.ResponseWriter, r *http.Request, host api.HostParameter,
 	nodeId api.NodeIdParameter, resource api.ResourcesParameter,
 ) {
-	node, err := h.db.GetNode(host, nodeId)
+	ctx, span := monitoring.Tracer.Start(r.Context(), "GetV1HostsHostNodeIdResource")
+	defer span.End()
+
+	node, err := h.db.GetNode(ctx, host, nodeId)
 	if err != nil && !errors.Is(err, database.ErrNodeNotFound) {
 		h.logger.Error("unable to retrieve node payload",
 			zap.String("host", host),
@@ -318,7 +338,7 @@ func (h *handler) GetV1HostsHostNodeIdResource(w http.ResponseWriter, r *http.Re
 			zap.String("remote-address", r.RemoteAddr),
 			zap.String("url", r.URL.String()),
 			zap.Error(err))
-		h.internalServerError(w, r, err)
+		h.internalServerError(ctx, w, r, err)
 		return
 	} else if errors.Is(err, database.ErrNodeNotFound) {
 		h.logger.Debug("node not found",
@@ -327,7 +347,7 @@ func (h *handler) GetV1HostsHostNodeIdResource(w http.ResponseWriter, r *http.Re
 			zap.String("method", r.Method),
 			zap.String("remote-address", r.RemoteAddr),
 			zap.String("url", r.URL.String()))
-		h.notFoundError(w, r, "node")
+		h.notFoundError(ctx, w, r, "node")
 		return
 	}
 
@@ -341,7 +361,7 @@ func (h *handler) GetV1HostsHostNodeIdResource(w http.ResponseWriter, r *http.Re
 			zap.String("method", r.Method),
 			zap.String("remote-address", r.RemoteAddr),
 			zap.String("url", r.URL.String()))
-		h.internalServerError(w, r, errors.New("unable to retrieve config_table"))
+		h.internalServerError(ctx, w, r, errors.New("unable to retrieve config_table"))
 		return
 	}
 	configTable, ok := configTableInterface.(map[string]interface{})
@@ -353,7 +373,7 @@ func (h *handler) GetV1HostsHostNodeIdResource(w http.ResponseWriter, r *http.Re
 			zap.String("method", r.Method),
 			zap.String("remote-address", r.RemoteAddr),
 			zap.String("url", r.URL.String()))
-		h.internalServerError(w, r, errors.New("unable to cast config_table"))
+		h.internalServerError(ctx, w, r, errors.New("unable to cast config_table"))
 		return
 	}
 
@@ -367,7 +387,7 @@ func (h *handler) GetV1HostsHostNodeIdResource(w http.ResponseWriter, r *http.Re
 			zap.String("method", r.Method),
 			zap.String("remote-address", r.RemoteAddr),
 			zap.String("url", r.URL.String()))
-		h.notFoundError(w, r, resource)
+		h.notFoundError(ctx, w, r, resource)
 		return
 	}
 	resources, ok := resourcesInterface.([]interface{})
@@ -379,7 +399,7 @@ func (h *handler) GetV1HostsHostNodeIdResource(w http.ResponseWriter, r *http.Re
 			zap.String("method", r.Method),
 			zap.String("remote-address", r.RemoteAddr),
 			zap.String("url", r.URL.String()))
-		h.internalServerError(w, r, errors.New("unable to cast resources"))
+		h.internalServerError(ctx, w, r, errors.New("unable to cast resources"))
 		return
 	}
 
@@ -395,7 +415,7 @@ func (h *handler) GetV1HostsHostNodeIdResource(w http.ResponseWriter, r *http.Re
 				zap.String("method", r.Method),
 				zap.String("remote-address", r.RemoteAddr),
 				zap.String("url", r.URL.String()))
-			h.internalServerError(w, r, errors.New("unable to cast resource"))
+			h.internalServerError(ctx, w, r, errors.New("unable to cast resource"))
 			return
 		}
 		data = append(data, d)
@@ -419,7 +439,10 @@ func (h *handler) GetV1HostsHostNodeIdResource(w http.ResponseWriter, r *http.Re
 	}
 }
 
-func (h *handler) internalServerError(w http.ResponseWriter, r *http.Request, err error) {
+func (h *handler) internalServerError(ctx context.Context, w http.ResponseWriter, r *http.Request, err error) {
+	_, span := monitoring.Tracer.Start(ctx, "internalServerError")
+	defer span.End()
+
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(http.StatusInternalServerError)
 	detailMessage := fmt.Sprintf("internal server error: %v", err)
@@ -437,7 +460,10 @@ func (h *handler) internalServerError(w http.ResponseWriter, r *http.Request, er
 	}
 }
 
-func (h *handler) notFoundError(w http.ResponseWriter, r *http.Request, resource string) {
+func (h *handler) notFoundError(ctx context.Context, w http.ResponseWriter, r *http.Request, resource string) {
+	_, span := monitoring.Tracer.Start(ctx, "notFoundError")
+	defer span.End()
+
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(http.StatusNotFound)
 	errMessage := fmt.Sprintf("resource not found: %s", resource)

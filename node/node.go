@@ -28,8 +28,10 @@ import (
 	"github.com/mikefero/ankh"
 	"github.com/mikefero/kheper/internal/config"
 	"github.com/mikefero/kheper/internal/database"
+	"github.com/mikefero/kheper/internal/monitoring"
 	"github.com/mikefero/kheper/internal/server"
 	"github.com/mikefero/kheper/internal/utils"
+	"go.opentelemetry.io/otel/attribute"
 	"go.uber.org/zap"
 )
 
@@ -37,16 +39,16 @@ var (
 	// ErrNodeConnected is returned when the node is already started and connected.
 	ErrNodeConnected = errors.New("node is already started and connected")
 
-	apiServer *http.Server
-	once      sync.Once
+	apiServer             *http.Server
+	once                  sync.Once
+	monitoringEnabledOnce sync.Once
 )
 
 // Node is a mock Kong Gateway data plane node.
 type Node struct {
-	client    *ankh.WebSocketClient
-	handler   protocolHandler
-	logger    *zap.Logger
-	serverURL url.URL
+	client  *ankh.WebSocketClient
+	handler protocolHandler
+	logger  *zap.Logger
 }
 
 // Opts are the options used to create a new node.
@@ -90,6 +92,8 @@ type Opts struct {
 	// APIConfiguration is the configuration for the API server to run. If
 	// nil, the API server will not be started.
 	APIConfiguration *config.API
+	// OpenTelemetry is the configuration for the observability server to run.
+	OpenTelemetry config.OpenTelemetry
 
 	// Logger is the logger to use for logging.
 	Logger *zap.Logger
@@ -147,15 +151,36 @@ func NewNode(opts Opts) (*Node, error) {
 		return nil, fmt.Errorf("error creating database: %w", err)
 	}
 
+	// Create the monitoring instance
+	metrics, err := monitoring.NewMonitoring(monitoring.Opts{
+		OpenTelemetry: opts.OpenTelemetry,
+		Logger:        opts.Logger,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("error creating monitoring: %w", err)
+	}
+	monitoringEnabledOnce.Do(func() {
+		if opts.OpenTelemetry.Enabled {
+			opts.Logger.Info("monitoring enabled",
+				zap.String("host", opts.OpenTelemetry.Host),
+				zap.Int("port", opts.OpenTelemetry.Port),
+				zap.String("service-name", opts.OpenTelemetry.ServiceName),
+				zap.Duration("metric-interval", opts.OpenTelemetry.MetricInterval),
+				zap.Duration("shutdown-interval", opts.OpenTelemetry.ShutdownInterval),
+			)
+		}
+	})
+
 	// Create the API server for the node(s)
 	if opts.APIConfiguration != nil && opts.APIConfiguration.Enabled {
 		apiServer, err = server.NewServer(server.Opts{
-			Database:          db,
-			Port:              opts.APIConfiguration.Port,
-			ReadTimeout:       opts.APIConfiguration.Timeouts.Read,
-			ReadHeaderTimeout: opts.APIConfiguration.Timeouts.ReadHeader,
-			WriteTimeout:      opts.APIConfiguration.Timeouts.Write,
-			Logger:            opts.Logger,
+			Database:             db,
+			Port:                 opts.APIConfiguration.Port,
+			ReadTimeout:          opts.APIConfiguration.Timeouts.Read,
+			ReadHeaderTimeout:    opts.APIConfiguration.Timeouts.ReadHeader,
+			WriteTimeout:         opts.APIConfiguration.Timeouts.Write,
+			OpenTelemetryEnabled: opts.OpenTelemetry.Enabled,
+			Logger:               opts.Logger,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("error creating API server: %w", err)
@@ -190,6 +215,15 @@ func NewNode(opts Opts) (*Node, error) {
 		Version:  opts.Version,
 	}
 
+	// Initialize the trace attributes
+	traceAttributes := []attribute.KeyValue{
+		attribute.String("host", opts.Host),
+		attribute.String("hostname", opts.Hostname),
+		attribute.String("node-id", opts.ID.String()),
+		attribute.String("group", opts.OpenTelemetry.ServiceName),
+		attribute.String("version", opts.Version.String()),
+	}
+
 	// Create the appropriate protocol handler, path, and server URL
 	var handler protocolHandler
 	path := "/v1/outlet"
@@ -202,8 +236,10 @@ func NewNode(opts Opts) (*Node, error) {
 			db:           db,
 			logger:       nodeLogger,
 			nodeInfo:     info,
+			metrics:      metrics,
 			pingInterval: opts.PingInterval,
 			pingJitter:   opts.PingJitter,
+			attributes:   traceAttributes,
 		}
 		serverURL.RawQuery = url.Values{
 			"node_id":       []string{opts.ID.String()},
@@ -215,8 +251,10 @@ func NewNode(opts Opts) (*Node, error) {
 			db:           db,
 			logger:       nodeLogger,
 			nodeInfo:     info,
+			metrics:      metrics,
 			pingInterval: opts.PingInterval,
 			pingJitter:   opts.PingJitter,
+			attributes:   traceAttributes,
 		}
 		path = "/v2/outlet"
 		panic("JSON RPC is not supported")
@@ -246,10 +284,9 @@ func NewNode(opts Opts) (*Node, error) {
 	}
 
 	return &Node{
-		client:    client,
-		handler:   handler,
-		logger:    nodeLogger,
-		serverURL: serverURL,
+		client:  client,
+		handler: handler,
+		logger:  nodeLogger,
 	}, nil
 }
 
@@ -281,9 +318,9 @@ func (n *Node) Run(ctx context.Context) error {
 	}
 
 	// Start the node
-	n.logger.Debug("starting node")
 	if err := n.client.Run(ctx); err != nil {
 		return fmt.Errorf("error occurred while running client: %w", err)
 	}
+	n.logger.Info("starting node")
 	return nil
 }
