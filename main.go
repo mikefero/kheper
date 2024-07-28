@@ -78,17 +78,18 @@ func main() {
 	defer close(breakSignal)
 
 	// Create a jittered reconnection interval function
+	nodeConfiguration := config.Globals.Node
 	reconnectionInternal := func() time.Duration {
-		jitter, err := rand.Int(rand.Reader, big.NewInt(config.Defaults.ReconnectionJitter.Nanoseconds()))
+		jitter, err := rand.Int(rand.Reader, big.NewInt(nodeConfiguration.ReconnectionJitter.Nanoseconds()))
 		if err != nil {
 			logger.Error("unable to generate jitter", zap.Error(err))
 			jitter = big.NewInt(0)
 		}
 		logger.Debug("reconnection interval",
-			zap.Duration("interval", config.Defaults.ReconnectionInterval),
+			zap.Duration("interval", nodeConfiguration.ReconnectionInterval),
 			zap.Duration("jitter", time.Duration(jitter.Int64())),
 		)
-		return config.Defaults.ReconnectionInterval + time.Duration(jitter.Int64())
+		return nodeConfiguration.ReconnectionInterval + time.Duration(jitter.Int64())
 	}
 
 	// Create the nodes from the configuration. In order to ensure that user
@@ -188,9 +189,9 @@ func main() {
 						CipherSuite:         cipherSuite,
 						TLSVersion:          tlsVersion,
 						Certificate:         certificate,
-						HandshakeTimeout:    config.Defaults.HandshakeTimeout,
-						PingInterval:        config.Defaults.PingInterval,
-						PingJitter:          config.Defaults.PingJitter,
+						HandshakeTimeout:    nodeConfiguration.HandshakeTimeout,
+						PingInterval:        nodeConfiguration.PingInterval,
+						PingJitter:          nodeConfiguration.PingJitter,
 						ServerConfiguration: &config.Server,
 						Logger:              logger,
 					}
@@ -244,7 +245,7 @@ func main() {
 						select {
 						case <-ctx.Done():
 							return
-						case <-time.After(config.Defaults.NodeCreationDelay):
+						case <-time.After(nodeConfiguration.NodeCreationDelay):
 						}
 					}
 				}

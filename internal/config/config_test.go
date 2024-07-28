@@ -40,13 +40,15 @@ func TestConfig(t *testing.T) {
 					Write:      15 * time.Second,
 				},
 			},
-			Defaults: config.Defaults{
-				HandshakeTimeout:     15 * time.Second,
-				NodeCreationDelay:    20 * time.Millisecond,
-				PingInterval:         15 * time.Second,
-				PingJitter:           5 * time.Second,
-				ReconnectionInterval: 10 * time.Second,
-				ReconnectionJitter:   5 * time.Second,
+			Globals: config.Globals{
+				Node: config.GlobalsNode{
+					HandshakeTimeout:     15 * time.Second,
+					NodeCreationDelay:    20 * time.Millisecond,
+					PingInterval:         15 * time.Second,
+					PingJitter:           5 * time.Second,
+					ReconnectionInterval: 10 * time.Second,
+					ReconnectionJitter:   5 * time.Second,
+				},
 			},
 			Nodes: []config.Node{
 				{
@@ -83,13 +85,15 @@ func TestConfig(t *testing.T) {
 					Write:      10 * time.Second,
 				},
 			},
-			Defaults: config.Defaults{
-				HandshakeTimeout:     15 * time.Second,
-				NodeCreationDelay:    20 * time.Millisecond,
-				PingInterval:         15 * time.Second,
-				PingJitter:           5 * time.Second,
-				ReconnectionInterval: 10 * time.Second,
-				ReconnectionJitter:   5 * time.Second,
+			Globals: config.Globals{
+				Node: config.GlobalsNode{
+					HandshakeTimeout:     15 * time.Second,
+					NodeCreationDelay:    20 * time.Millisecond,
+					PingInterval:         15 * time.Second,
+					PingJitter:           5 * time.Second,
+					ReconnectionInterval: 10 * time.Second,
+					ReconnectionJitter:   5 * time.Second,
+				},
 			},
 			Nodes: []config.Node{
 				{
@@ -146,13 +150,15 @@ nodes:
 					Write:      10 * time.Second,
 				},
 			},
-			Defaults: config.Defaults{
-				HandshakeTimeout:     15 * time.Second,
-				NodeCreationDelay:    20 * time.Millisecond,
-				PingInterval:         15 * time.Second,
-				PingJitter:           5 * time.Second,
-				ReconnectionInterval: 10 * time.Second,
-				ReconnectionJitter:   5 * time.Second,
+			Globals: config.Globals{
+				Node: config.GlobalsNode{
+					HandshakeTimeout:     15 * time.Second,
+					NodeCreationDelay:    20 * time.Millisecond,
+					PingInterval:         15 * time.Second,
+					PingJitter:           5 * time.Second,
+					ReconnectionInterval: 10 * time.Second,
+					ReconnectionJitter:   5 * time.Second,
+				},
 			},
 			Nodes: []config.Node{
 				{
@@ -212,13 +218,15 @@ nodes:
 					Write:      10 * time.Second,
 				},
 			},
-			Defaults: config.Defaults{
-				HandshakeTimeout:     15 * time.Second,
-				NodeCreationDelay:    20 * time.Millisecond,
-				PingInterval:         15 * time.Second,
-				PingJitter:           5 * time.Second,
-				ReconnectionInterval: 10 * time.Second,
-				ReconnectionJitter:   5 * time.Second,
+			Globals: config.Globals{
+				Node: config.GlobalsNode{
+					HandshakeTimeout:     15 * time.Second,
+					NodeCreationDelay:    20 * time.Millisecond,
+					PingInterval:         15 * time.Second,
+					PingJitter:           5 * time.Second,
+					ReconnectionInterval: 10 * time.Second,
+					ReconnectionJitter:   5 * time.Second,
+				},
 			},
 			Nodes: []config.Node{
 				{
@@ -244,12 +252,12 @@ nodes:
 		t.Setenv("KHEPER_SERVER_TIMEOUTS_READ", "10s")
 		t.Setenv("KHEPER_SERVER_TIMEOUTS_READ_HEADER", "10s")
 		t.Setenv("KHEPER_SERVER_TIMEOUTS_WRITE", "10s")
-		t.Setenv("KHEPER_DEFAULTS_HANDSHAKE_TIMEOUT", "1s")
-		t.Setenv("KHEPER_DEFAULTS_NODE_CREATION_DELAY", "2ms")
-		t.Setenv("KHEPER_DEFAULTS_PING_INTERVAL", "3s")
-		t.Setenv("KHEPER_DEFAULTS_PING_JITTER", "4s")
-		t.Setenv("KHEPER_DEFAULTS_RECONNECTION_INTERVAL", "1s")
-		t.Setenv("KHEPER_DEFAULTS_RECONNECTION_JITTER", "2s")
+		t.Setenv("KHEPER_GLOBALS_NODE_HANDSHAKE_TIMEOUT", "1s")
+		t.Setenv("KHEPER_GLOBALS_NODE_NODE_CREATION_DELAY", "2ms")
+		t.Setenv("KHEPER_GLOBALS_NODE_PING_INTERVAL", "3s")
+		t.Setenv("KHEPER_GLOBALS_NODE_PING_JITTER", "4s")
+		t.Setenv("KHEPER_GLOBALS_NODE_RECONNECTION_INTERVAL", "1s")
+		t.Setenv("KHEPER_GLOBALS_NODE_RECONNECTION_JITTER", "2s")
 		t.Setenv("KHEPER_NODES_INSTANCES", "5")
 		t.Setenv("KHEPER_NODES_GROUP", "kheper")
 		t.Setenv("KHEPER_NODES_HOSTNAME", "kheper.local")
@@ -273,13 +281,15 @@ nodes:
 					Write:      10 * time.Second,
 				},
 			},
-			Defaults: config.Defaults{
-				HandshakeTimeout:     time.Second,
-				NodeCreationDelay:    2 * time.Millisecond,
-				PingInterval:         3 * time.Second,
-				PingJitter:           4 * time.Second,
-				ReconnectionInterval: 1 * time.Second,
-				ReconnectionJitter:   2 * time.Second,
+			Globals: config.Globals{
+				Node: config.GlobalsNode{
+					HandshakeTimeout:     time.Second,
+					NodeCreationDelay:    2 * time.Millisecond,
+					PingInterval:         3 * time.Second,
+					PingJitter:           4 * time.Second,
+					ReconnectionInterval: 1 * time.Second,
+					ReconnectionJitter:   2 * time.Second,
+				},
 			},
 			Nodes: []config.Node{
 				{
@@ -313,13 +323,15 @@ nodes:
 					Write:      10 * time.Second,
 				},
 			},
-			Defaults: config.Defaults{
-				HandshakeTimeout:     1 * time.Second,
-				NodeCreationDelay:    2 * time.Millisecond,
-				PingInterval:         3 * time.Second,
-				PingJitter:           4 * time.Second,
-				ReconnectionInterval: 1 * time.Second,
-				ReconnectionJitter:   2 * time.Second,
+			Globals: config.Globals{
+				Node: config.GlobalsNode{
+					HandshakeTimeout:     1 * time.Second,
+					NodeCreationDelay:    2 * time.Millisecond,
+					PingInterval:         3 * time.Second,
+					PingJitter:           4 * time.Second,
+					ReconnectionInterval: 1 * time.Second,
+					ReconnectionJitter:   2 * time.Second,
+				},
 			},
 			Nodes: []config.Node{
 				{
@@ -366,8 +378,9 @@ nodes:
 			t.Fatalf("unable to create config file: %v", err)
 		}
 		defer file.Close()
-		_, err = file.Write([]byte(`defaults:
-  handshake_timeout: invalid`))
+		_, err = file.Write([]byte(`globals:
+  node:
+    handshake_timeout: invalid`))
 		if err != nil {
 			t.Fatalf("unable to write config file: %v", err)
 		}

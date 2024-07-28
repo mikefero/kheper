@@ -48,16 +48,18 @@ the configuration options available:
 
 #### Configuration Options
 
-##### Defaults
+##### Global configurations
+
+###### Node
 
 | YAML Key | Environment Variable | Description |
 |---|---|---|
-| `defaults.handshake_timeout` | `KHEPER_DEFAULTS_HANDSHAKE_TIMEOUT` | The amount of time allowed to complete the WebSocket handshake. (default: **15s**) |
-| `defaults.node_creation_delay` | `KHEPER_DEFAULTS_NODE_CREATION_DELAY` | The amount of time to wait before creating the next node. (default: **20ms**) |
-| `defaults.ping_interval` | `KHEPER_DEFAULTS_PING_INTERVAL` | The interval at which the node should ping the control plane. This interval must be greater than 0. (default: **15s**) |
-| `defaults.ping_jitter` | `KHEPER_DEFAULTS_PING_JITTER` | The jitter to apply to the ping interval. This jitter must be greater than 0. (default: **5s**) |
-| `defaults.reconnection_interval` | `KHEPER_DEFAULTS_RECONNECTION_INTERVAL` | The interval at which the node should attempt to reconnect to the control plane. This interval must be greater than 0.(default: **10s**) |
-| `defaults.reconnection_jitter` | `KHEPER_DEFAULTS_RECONNECTION_JITTER` | The jitter to apply to the reconnection interval. This jitter must be greater than 0. (default: **5s**) |
+| `globals.node.handshake_timeout` | `KHEPER_GLOBALS_NODE_HANDSHAKE_TIMEOUT` | The amount of time allowed to complete the WebSocket handshake. (default: **15s**) |
+| `globals.node.node_creation_delay` | `KHEPER_GLOBALS_NODE_NODE_CREATION_DELAY` | The amount of time to wait before creating the next node. (default: **20ms**) |
+| `globals.node.ping_interval` | `KHEPER_GLOBALS_NODE_PING_INTERVAL` | The interval at which the node should ping the control plane. This interval must be greater than 0. (default: **15s**) |
+| `globals.node.ping_jitter` | `KHEPER_GLOBALS_NODE_PING_JITTER` | The jitter to apply to the ping interval. This jitter must be greater than 0. (default: **5s**) |
+| `globals.node.reconnection_interval` | `KHEPER_GLOBALS_NODE_RECONNECTION_INTERVAL` | The interval at which the node should attempt to reconnect to the control plane. This interval must be greater than 0.(default: **10s**) |
+| `globals.node.reconnection_jitter` | `KHEPER_GLOBALS_NODE_RECONNECTION_JITTER` | The jitter to apply to the reconnection interval. This jitter must be greater than 0. (default: **5s**) |
 
 ##### Nodes
 
@@ -157,14 +159,16 @@ server:
     read_header: 15s
     write: 15s
 
-# Node defaults configuration that are shared across all nodes
-defaults:
-  handshake_timeout: 15s
-  node_creation_delay: 20ms
-  ping_interval: 15s
-  ping_jitter: 5s
-  reconnection_interval: 10s
-  reconnection_jitter: 5s
+# Global configuration for various features of Kheper
+globals:
+  # Node Configurations that are shared across all nodes
+  node:
+    handshake_timeout: 15s
+    node_creation_delay: 20ms
+    ping_interval: 15s
+    ping_jitter: 5s
+    reconnection_interval: 10s
+    reconnection_jitter: 5s
 
 # Node configuration for single or multiple control planes
 nodes:
@@ -223,13 +227,13 @@ export KHEPER_SERVER_TIMEOUTS_READ=15s
 export KHEPER_SERVER_TIMEOUTS_READ_HEADER=15s
 export KHEPER_SERVER_TIMEOUTS_WRITE=15s
 
-# Defaults
-export KHEPER_DEFAULTS_HANDSHAKE_TIMEOUT=15s
-export KHEPER_DEFAULTS_NODE_CREATION_DELAY=20ms
-export KHEPER_DEFAULTS_PING_INTERVAL=15s
-export KHEPER_DEFAULTS_PING_JITTER=5s
-export KHEPER_DEFAULTS_RECONNECTION_INTERVAL=10s
-export KHEPER_DEFAULTS_RECONNECTION_JITTER=5s
+# Shared node configuration
+export KHEPER_GLOBALS_NODE_HANDSHAKE_TIMEOUT=15s
+export KHEPER_GLOBALS_NODE_NODE_CREATION_DELAY=20ms
+export KHEPER_GLOBALS_NODE_PING_INTERVAL=15s
+export KHEPER_GLOBALS_NODE_PING_JITTER=5s
+export KHEPER_GLOBALS_NODE_RECONNECTION_INTERVAL=10s
+export KHEPER_GLOBALS_NODE_RECONNECTION_JITTER=5s
 
 # Nodes
 export KHEPER_NODES_INSTANCES=14
@@ -522,7 +526,6 @@ make kong-down
 
 - Develop a handler for the JSON-RPC protocol.
 - Integrate observability metrics and create Grafana dashboards.
-- Set default values in the configuration file for all versions of Kong Gateway.
 - Incorporate a configuration section for both standard and custom plugins.
 
 ## License
