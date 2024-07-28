@@ -176,8 +176,231 @@ func TestServer(t *testing.T) {
 		// Create the client
 		client := httpexpect.Default(t, fmt.Sprintf("http://localhost:%d", port))
 
+		t.Run("verify groups are empty when no groups are available", func(t *testing.T) {
+			client.GET("/v1/groups").
+				Expect().
+				Status(http.StatusOK).
+				JSON().
+				Array().
+				IsEmpty()
+		})
+
+		t.Run("verify a single group is available", func(t *testing.T) {
+			id := uuid.New()
+			group := "test"
+			err := db.SetNode(database.Node{
+				ControlPlaneHost: "localhost",
+				Group:            &group,
+				Hostname:         "kheper.local",
+				ID:               id.String(),
+				Payload:          map[string]interface{}{"is_valid": true},
+				Version:          "1.2.3",
+			})
+			require.NoError(t, err)
+			defer db.DeleteNode("localhost", id)
+
+			client.GET("/v1/groups").
+				Expect().
+				Status(http.StatusOK).
+				JSON().
+				Array().
+				ContainsOnly("test")
+		})
+
+		t.Run("verify multiple groups are available", func(t *testing.T) {
+			node1ID := uuid.New()
+			group1 := "test-1"
+			node2ID := uuid.New()
+			group2 := "test-2"
+			err := db.SetNode(database.Node{
+				ControlPlaneHost: "localhost",
+				Group:            &group1,
+				Hostname:         "kheper.local",
+				ID:               node1ID.String(),
+				Payload:          map[string]interface{}{"is_valid": true},
+				Version:          "1.2.3",
+			})
+			require.NoError(t, err)
+			err = db.SetNode(database.Node{
+				ControlPlaneHost: "kheper.example.com",
+				Group:            &group2,
+				Hostname:         "kheper.local",
+				ID:               node2ID.String(),
+				Payload:          map[string]interface{}{"is_valid": true},
+				Version:          "1.2.3.1",
+			})
+			require.NoError(t, err)
+			defer db.DeleteNode("localhost", node1ID)
+			defer db.DeleteNode("kheper.example.com", node2ID)
+
+			client.GET("/v1/groups").
+				Expect().
+				Status(http.StatusOK).
+				JSON().
+				Array().
+				ContainsAll("test-1", "test-2")
+		})
+
+		t.Run("verify a single node is available within a group", func(t *testing.T) {
+			id := uuid.New()
+			group := "test"
+			node := database.Node{
+				CipherSuite:      "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+				Group:            &group,
+				ControlPlaneHost: "localhost",
+				Hostname:         "kheper.local",
+				ID:               id.String(),
+				Payload:          map[string]interface{}{"is_valid": true},
+				TLSVersion:       "TLSv1.3",
+				Version:          "1.2.3",
+			}
+			err := db.SetNode(node)
+			require.NoError(t, err)
+			defer db.DeleteNode("localhost", id)
+
+			expected := []map[string]interface{}{
+				{
+					"cipher_suite": node.CipherSuite,
+					"group":        group,
+					"hostname":     node.Hostname,
+					"id":           id,
+					"tls_version":  node.TLSVersion,
+					"version":      node.Version,
+				},
+			}
+			client.GET("/v1/groups/test").
+				Expect().
+				Status(http.StatusOK).
+				JSON().
+				Array().
+				IsEqual(expected)
+		})
+
+		t.Run("verify multiple nodes are available within a group", func(t *testing.T) {
+			node1ID := uuid.New()
+			node2ID := uuid.New()
+			group := "test"
+			node1 := database.Node{
+				CipherSuite:      "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+				ControlPlaneHost: "localhost",
+				Group:            &group,
+				Hostname:         "kheper.local",
+				ID:               node1ID.String(),
+				Payload:          map[string]interface{}{"is_valid": true},
+				TLSVersion:       "TLSv1.3",
+				Version:          "1.2.3",
+			}
+			node2 := database.Node{
+				CipherSuite:      "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+				ControlPlaneHost: "localhost",
+				Group:            &group,
+				Hostname:         "kheper.local",
+				ID:               node2ID.String(),
+				Payload:          map[string]interface{}{"is_valid": true},
+				TLSVersion:       "TLSv1.3",
+				Version:          "1.2.3.1",
+			}
+			err := db.SetNode(node1)
+			require.NoError(t, err)
+			err = db.SetNode(node2)
+			require.NoError(t, err)
+			defer db.DeleteNode("localhost", node1ID)
+			defer db.DeleteNode("localhost", node2ID)
+
+			expected := []map[string]interface{}{
+				{
+					"cipher_suite": node1.CipherSuite,
+					"group":        group,
+					"hostname":     node1.Hostname,
+					"id":           node1ID,
+					"tls_version":  node1.TLSVersion,
+					"version":      node1.Version,
+				},
+				{
+					"cipher_suite": node2.CipherSuite,
+					"group":        group,
+					"hostname":     node2.Hostname,
+					"id":           node2ID,
+					"tls_version":  node2.TLSVersion,
+					"version":      node2.Version,
+				},
+			}
+			client.GET("/v1/groups/test").
+				Expect().
+				Status(http.StatusOK).
+				JSON().
+				Array().
+				ContainsOnly(expected[0], expected[1])
+		})
+
+		t.Run("verify different nodes are available within different groups", func(t *testing.T) {
+			node1ID := uuid.New()
+			group1 := "test-1"
+			node2ID := uuid.New()
+			group2 := "test-2"
+			node1 := database.Node{
+				CipherSuite:      "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+				ControlPlaneHost: "localhost",
+				Group:            &group1,
+				Hostname:         "kheper.local",
+				ID:               node1ID.String(),
+				Payload:          map[string]interface{}{"is_valid": true},
+				TLSVersion:       "TLSv1.3",
+				Version:          "1.2.3",
+			}
+			node2 := database.Node{
+				CipherSuite:      "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+				ControlPlaneHost: "kheper.example.com",
+				Group:            &group2,
+				Hostname:         "kheper.local",
+				ID:               node2ID.String(),
+				Payload:          map[string]interface{}{"is_valid": true},
+				TLSVersion:       "TLSv1.3",
+				Version:          "1.2.3.1",
+			}
+			err := db.SetNode(node1)
+			require.NoError(t, err)
+			err = db.SetNode(node2)
+			require.NoError(t, err)
+			defer db.DeleteNode("localhost", node1ID)
+			defer db.DeleteNode("kheper.example.com", node2ID)
+
+			expected := []map[string]interface{}{
+				{
+					"cipher_suite": node1.CipherSuite,
+					"group":        group1,
+					"hostname":     node1.Hostname,
+					"id":           node1ID,
+					"tls_version":  node1.TLSVersion,
+					"version":      node1.Version,
+				},
+			}
+			client.GET("/v1/groups/test-1").
+				Expect().
+				Status(http.StatusOK).
+				JSON().
+				Array().
+				IsEqual(expected)
+			expected = []map[string]interface{}{
+				{
+					"cipher_suite": node2.CipherSuite,
+					"group":        group2,
+					"hostname":     node2.Hostname,
+					"id":           node2ID,
+					"tls_version":  node2.TLSVersion,
+					"version":      node2.Version,
+				},
+			}
+			client.GET("/v1/groups/test-2").
+				Expect().
+				Status(http.StatusOK).
+				JSON().
+				Array().
+				IsEqual(expected)
+		})
+
 		t.Run("verify hosts are empty when no hosts are available", func(t *testing.T) {
-			client.GET("/hosts").
+			client.GET("/v1/hosts").
 				Expect().
 				Status(http.StatusOK).
 				JSON().
@@ -197,7 +420,7 @@ func TestServer(t *testing.T) {
 			require.NoError(t, err)
 			defer db.DeleteNode("localhost", id)
 
-			client.GET("/hosts").
+			client.GET("/v1/hosts").
 				Expect().
 				Status(http.StatusOK).
 				JSON().
@@ -227,7 +450,7 @@ func TestServer(t *testing.T) {
 			defer db.DeleteNode("localhost", node1ID)
 			defer db.DeleteNode("kheper.example.com", node2ID)
 
-			client.GET("/hosts").
+			client.GET("/v1/hosts").
 				Expect().
 				Status(http.StatusOK).
 				JSON().
@@ -262,7 +485,7 @@ func TestServer(t *testing.T) {
 			defer db.DeleteNode("localhost", node1ID)
 			defer db.DeleteNode("kheper.example.com", node2ID)
 
-			client.GET("/hosts").
+			client.GET("/v1/hosts").
 				Expect().
 				Status(http.StatusOK).
 				JSON().
@@ -277,7 +500,7 @@ func TestServer(t *testing.T) {
 			expected := `{
 				"message": "resource not found: host"
 			}`
-			r := client.GET("/localhost").
+			r := client.GET("/v1/hosts/localhost").
 				Expect().
 				Status(http.StatusNotFound)
 			r.Header("Content-Type").IsEqual("application/problem+json")
@@ -308,7 +531,7 @@ func TestServer(t *testing.T) {
 					"version":      node.Version,
 				},
 			}
-			client.GET("/localhost").
+			client.GET("/v1/hosts/localhost").
 				Expect().
 				Status(http.StatusOK).
 				JSON().
@@ -360,7 +583,7 @@ func TestServer(t *testing.T) {
 					"version":      node2.Version,
 				},
 			}
-			client.GET("/localhost").
+			client.GET("/v1/hosts/localhost").
 				Expect().
 				Status(http.StatusOK).
 				JSON().
@@ -405,7 +628,7 @@ func TestServer(t *testing.T) {
 					"version":      node1.Version,
 				},
 			}
-			client.GET("/localhost").
+			client.GET("/v1/hosts/localhost").
 				Expect().
 				Status(http.StatusOK).
 				JSON().
@@ -420,7 +643,7 @@ func TestServer(t *testing.T) {
 					"version":      node2.Version,
 				},
 			}
-			client.GET("/kheper.example.com").
+			client.GET("/v1/hosts/kheper.example.com").
 				Expect().
 				Status(http.StatusOK).
 				JSON().
@@ -467,7 +690,7 @@ func TestServer(t *testing.T) {
 					"version":      node1.Version,
 				},
 			}
-			client.GET("/localhost").
+			client.GET("/v1/hosts/localhost").
 				Expect().
 				Status(http.StatusOK).
 				JSON().
@@ -483,7 +706,7 @@ func TestServer(t *testing.T) {
 					"version":      node2.Version,
 				},
 			}
-			client.GET("/kheper.example.com").
+			client.GET("/v1/hosts/kheper.example.com").
 				Expect().
 				Status(http.StatusOK).
 				JSON().
@@ -514,7 +737,7 @@ func TestServer(t *testing.T) {
 				"tls_version":  node.TLSVersion,
 				"version":      node.Version,
 			}
-			client.GET("/localhost/{id}", id).
+			client.GET("/v1/hosts/localhost/{id}", id).
 				Expect().
 				Status(http.StatusOK).
 				JSON().
@@ -548,7 +771,7 @@ func TestServer(t *testing.T) {
 				"tls_version":  node.TLSVersion,
 				"version":      node.Version,
 			}
-			client.GET("/localhost/{id}", id).
+			client.GET("/v1/hosts/localhost/{id}", id).
 				Expect().
 				Status(http.StatusOK).
 				JSON().
@@ -592,7 +815,7 @@ func TestServer(t *testing.T) {
 				"tls_version":  node1.TLSVersion,
 				"version":      node1.Version,
 			}
-			client.GET("/localhost/{id}", node1ID).
+			client.GET("/v1/hosts/localhost/{id}", node1ID).
 				Expect().
 				Status(http.StatusOK).
 				JSON().
@@ -606,7 +829,7 @@ func TestServer(t *testing.T) {
 				"tls_version":  node2.TLSVersion,
 				"version":      node2.Version,
 			}
-			client.GET("/localhost/{id}", node2ID).
+			client.GET("/v1/hosts/localhost/{id}", node2ID).
 				Expect().
 				Status(http.StatusOK).
 				JSON().
@@ -650,7 +873,7 @@ func TestServer(t *testing.T) {
 				"tls_version":  node1.TLSVersion,
 				"version":      node1.Version,
 			}
-			client.GET("/localhost/{id}", node1ID).
+			client.GET("/v1/hosts/localhost/{id}", node1ID).
 				Expect().
 				Status(http.StatusOK).
 				JSON().
@@ -664,7 +887,7 @@ func TestServer(t *testing.T) {
 				"tls_version":  node2.TLSVersion,
 				"version":      node2.Version,
 			}
-			client.GET("/kheper.example.com/{id}", node2ID).
+			client.GET("/v1/hosts/kheper.example.com/{id}", node2ID).
 				Expect().
 				Status(http.StatusOK).
 				JSON().
@@ -690,7 +913,7 @@ func TestServer(t *testing.T) {
 			expected := `{
 				"message": "resource not found: node"
 			}`
-			r := client.GET("/localhost/{id}", uuid.NewString()).
+			r := client.GET("/v1/hosts/localhost/{id}", uuid.NewString()).
 				Expect().
 				Status(http.StatusNotFound)
 			r.Header("Content-Type").IsEqual("application/problem+json")
@@ -715,7 +938,7 @@ func TestServer(t *testing.T) {
 			expected := `{
 				"message": "resource not found: node"
 			}`
-			r := client.GET("/localhost/{id}/services", uuid.NewString()).
+			r := client.GET("/v1/hosts/localhost/{id}/services", uuid.NewString()).
 				Expect().
 				Status(http.StatusNotFound)
 			r.Header("Content-Type").IsEqual("application/problem+json")
@@ -742,7 +965,7 @@ func TestServer(t *testing.T) {
 				"status": 500,
 				"title": "Internal Server Error"
 			}`
-			r := client.GET("/localhost/{id}/services", id).
+			r := client.GET("/v1/hosts/localhost/{id}/services", id).
 				Expect().
 				Status(http.StatusInternalServerError)
 			r.Header("Content-Type").IsEqual("application/problem+json")
@@ -771,7 +994,7 @@ func TestServer(t *testing.T) {
 			expected := `{
 				"message": "resource not found: services"
 			}`
-			r := client.GET("/localhost/{id}/services", id).
+			r := client.GET("/v1/hosts/localhost/{id}/services", id).
 				Expect().
 				Status(http.StatusNotFound)
 			r.Header("Content-Type").IsEqual("application/problem+json")
@@ -800,7 +1023,7 @@ func TestServer(t *testing.T) {
 				"status": 500,
 				"title": "Internal Server Error"
 			}`
-			r := client.GET("/localhost/{id}/services", id).
+			r := client.GET("/v1/hosts/localhost/{id}/services", id).
 				Expect().
 				Status(http.StatusInternalServerError)
 			r.Header("Content-Type").IsEqual("application/problem+json")
@@ -831,7 +1054,7 @@ func TestServer(t *testing.T) {
 				"status": 500,
 				"title": "Internal Server Error"
 			}`
-			r := client.GET("/localhost/{id}/services", id).
+			r := client.GET("/v1/hosts/localhost/{id}/services", id).
 				Expect().
 				Status(http.StatusInternalServerError)
 			r.Header("Content-Type").IsEqual("application/problem+json")
@@ -864,7 +1087,7 @@ func TestServer(t *testing.T) {
 				"status": 500,
 				"title": "Internal Server Error"
 			}`
-			r := client.GET("/localhost/{id}/services", id).
+			r := client.GET("/v1/hosts/localhost/{id}/services", id).
 				Expect().
 				Status(http.StatusInternalServerError)
 			r.Header("Content-Type").IsEqual("application/problem+json")
@@ -916,7 +1139,7 @@ func TestServer(t *testing.T) {
 				],
 				"next": null
 			}`
-			r := client.GET("/localhost/{id}/services", id).
+			r := client.GET("/v1/hosts/localhost/{id}/services", id).
 				Expect().
 				Status(http.StatusOK)
 			r.Header("Content-Type").IsEqual("application/json")
@@ -933,7 +1156,7 @@ func TestServer(t *testing.T) {
 				],
 				"next": null
 			}`
-			r = client.GET("/localhost/{id}/routes", id).
+			r = client.GET("/v1/hosts/localhost/{id}/routes", id).
 				Expect().
 				Status(http.StatusOK)
 			r.Header("Content-Type").IsEqual("application/json")

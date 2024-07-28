@@ -16,11 +16,8 @@ type Error struct {
 	Type     *string `json:"type,omitempty"`
 }
 
-// HostGroup defines model for HostGroup.
-type HostGroup struct {
-	Groups   *[]string `json:"groups,omitempty"`
-	Hostname *string   `json:"hostname,omitempty"`
-}
+// Groups defines model for Groups.
+type Groups = string
 
 // HostNode defines model for HostNode.
 type HostNode struct {
@@ -45,6 +42,12 @@ type HostNode struct {
 	// Version Version is the Kong Gateway semantic version of the node. This
 	// version can be represented as 3 or 4 integers separated by dots.
 	Version string `json:"version"`
+}
+
+// HostsGroups defines model for HostsGroups.
+type HostsGroups struct {
+	Groups   *[]string `json:"groups,omitempty"`
+	Hostname *string   `json:"hostname,omitempty"`
 }
 
 // Node defines model for Node.
@@ -88,6 +91,9 @@ type Resources struct {
 	Next *string `json:"next"`
 }
 
+// GroupParameter defines model for GroupParameter.
+type GroupParameter = string
+
 // HostParameter The RFC 1123 IP address or hostname of the control plane connected to
 // the service mesh. Must be between 1 and 253 characters long, and each
 // segment separated by dots can contain alphanumeric characters and
@@ -103,11 +109,17 @@ type ResourcesParameter = string
 // BadRequestResponse defines model for BadRequestResponse.
 type BadRequestResponse = Error
 
+// GroupNodesResponse defines model for GroupNodesResponse.
+type GroupNodesResponse = []HostNode
+
+// GroupsResponse defines model for GroupsResponse.
+type GroupsResponse = interface{}
+
 // HostNodesResponse defines model for HostNodesResponse.
 type HostNodesResponse = []HostNode
 
 // HostsResponse defines model for HostsResponse.
-type HostsResponse = HostGroup
+type HostsResponse = HostsGroups
 
 // NodeResponse defines model for NodeResponse.
 type NodeResponse = Node

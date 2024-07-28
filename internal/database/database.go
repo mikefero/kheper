@@ -181,6 +181,34 @@ func (d *Database) DeleteNode(controlPlaneHost string, nodeID uuid.UUID) error {
 	return nil
 }
 
+// / GetGroups returns a list of all groups for data plane nodes connected to
+// control planes using the in-memory database.
+func (d *Database) GetGroups() ([]string, error) {
+	txn := d.db.Txn(false)
+	defer txn.Abort()
+	it, err := txn.Get("node", "group")
+	if err != nil {
+		return nil, fmt.Errorf("unable to get groups from database: %w", err)
+	}
+
+	groupSet := make(map[string]bool)
+	groups := []string{}
+	for obj := it.Next(); obj != nil; obj = it.Next() {
+		n, ok := obj.(Node)
+		if !ok {
+			return nil, fmt.Errorf("unable to cast node for groups: %w", err)
+		}
+		if n.Group != nil {
+			if _, exists := groupSet[*n.Group]; !exists {
+				groupSet[*n.Group] = true
+				groups = append(groups, *n.Group)
+			}
+		}
+	}
+
+	return groups, nil
+}
+
 // GetHosts returns a list of all hosts for data plane nodes connected to
 // control planes using the in-memory database.
 func (d *Database) GetHosts() ([]Hosts, error) {

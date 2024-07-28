@@ -50,9 +50,101 @@ type v1Node struct {
 	Version     string                 `json:"version"`
 }
 
+func (h *handler) GetV1Groups(w http.ResponseWriter, r *http.Request) {
+	groups, err := h.db.GetGroups()
+	if err != nil {
+		h.logger.Error("unable to retrieve groups",
+			zap.String("method", r.Method),
+			zap.String("remote-address", r.RemoteAddr),
+			zap.String("url", r.URL.String()),
+			zap.Error(err))
+		h.internalServerError(w, r, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(w).Encode(groups)
+	if err != nil {
+		h.logger.Error("unable to encode groups response",
+			zap.String("method", r.Method),
+			zap.String("remote-address", r.RemoteAddr),
+			zap.String("url", r.URL.String()),
+			zap.Error(err))
+		h.internalServerError(w, r, err)
+		return
+	}
+}
+
+//nolint:dupl
+func (h *handler) GetV1GroupsGroup(w http.ResponseWriter, r *http.Request, group api.GroupParameter) {
+	nodes, err := h.db.GetNodesByGroup(group)
+	if err != nil && !errors.Is(err, database.ErrHostNotFound) {
+		h.logger.Error("unable to retrieve nodes",
+			zap.String("group", group),
+			zap.String("method", r.Method),
+			zap.String("remote-address", r.RemoteAddr),
+			zap.String("url", r.URL.String()),
+			zap.Error(err))
+		h.internalServerError(w, r, err)
+		return
+	} else if errors.Is(err, database.ErrHostNotFound) {
+		h.logger.Debug("group not found",
+			zap.String("group", group),
+			zap.String("method", r.Method),
+			zap.String("remote-address", r.RemoteAddr),
+			zap.String("url", r.URL.String()))
+		h.notFoundError(w, r, "group")
+		return
+	}
+
+	// Create the host nodes response
+	hostNodesResponse := []v1HostNode{}
+	for _, node := range nodes {
+		id, err := uuid.Parse(node.ID)
+		if err != nil {
+			// This should never be able to happen due to index on schema for node ID
+			h.logger.Error("unable to parse node ID",
+				zap.String("group", group),
+				zap.String("node-id", node.ID),
+				zap.String("method", r.Method),
+				zap.String("remote-address", r.RemoteAddr),
+				zap.String("url", r.URL.String()),
+				zap.Error(err))
+			h.internalServerError(w, r, err)
+			return
+		}
+		cipherSuite := node.CipherSuite
+		hostname := node.Hostname
+		tlsVersion := node.TLSVersion
+		version := node.Version
+		hostNodesResponse = append(hostNodesResponse, v1HostNode{
+			ID:          id,
+			CipherSuite: cipherSuite,
+			Group:       node.Group,
+			Hostname:    hostname,
+			TLSVersion:  tlsVersion,
+			Version:     version,
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(w).Encode(hostNodesResponse)
+	if err != nil {
+		h.logger.Error("unable to encode nodes response",
+			zap.String("group", group),
+			zap.String("method", r.Method),
+			zap.String("remote-address", r.RemoteAddr),
+			zap.String("url", r.URL.String()),
+			zap.Error(err))
+		return
+	}
+}
+
 // GetHosts will return a list of all hosts connected to control plane(s) using
 // the in-memory database and return them as a JSON response.
-func (h *handler) GetHosts(w http.ResponseWriter, r *http.Request) {
+func (h *handler) GetV1Hosts(w http.ResponseWriter, r *http.Request) {
 	hosts, err := h.db.GetHosts()
 	if err != nil {
 		h.logger.Error("unable to retrieve hosts",
@@ -88,7 +180,9 @@ func (h *handler) GetHosts(w http.ResponseWriter, r *http.Request) {
 
 // GetHost will return a list of all nodes connected to a control plane host
 // using the in-memory database and return them as a JSON response.
-func (h *handler) GetHost(w http.ResponseWriter, r *http.Request, host api.HostParameter) {
+//
+//nolint:dupl
+func (h *handler) GetV1HostsHost(w http.ResponseWriter, r *http.Request, host api.HostParameter) {
 	nodes, err := h.db.GetNodesByHost(host)
 	if err != nil && !errors.Is(err, database.ErrHostNotFound) {
 		h.logger.Error("unable to retrieve nodes",
@@ -157,7 +251,7 @@ func (h *handler) GetHost(w http.ResponseWriter, r *http.Request, host api.HostP
 // a JSON response.
 //
 //nolint:revive,stylecheck
-func (h *handler) GetHostNodeId(w http.ResponseWriter, r *http.Request, host api.HostParameter,
+func (h *handler) GetV1HostsHostNodeId(w http.ResponseWriter, r *http.Request, host api.HostParameter,
 	nodeId api.NodeIdParameter,
 ) {
 	node, err := h.db.GetNode(host, nodeId)
@@ -212,7 +306,7 @@ func (h *handler) GetHostNodeId(w http.ResponseWriter, r *http.Request, host api
 // from the in-memory database and return it as a JSON response.
 //
 //nolint:revive,stylecheck
-func (h *handler) GetHostNodeIdResource(w http.ResponseWriter, r *http.Request, host api.HostParameter,
+func (h *handler) GetV1HostsHostNodeIdResource(w http.ResponseWriter, r *http.Request, host api.HostParameter,
 	nodeId api.NodeIdParameter, resource api.ResourcesParameter,
 ) {
 	node, err := h.db.GetNode(host, nodeId)

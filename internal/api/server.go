@@ -13,45 +13,63 @@ import (
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// List all groups
+	// (GET /v1/groups)
+	GetV1Groups(w http.ResponseWriter, r *http.Request)
+	// List all nodes connected to a group
+	// (GET /v1/groups/{group})
+	GetV1GroupsGroup(w http.ResponseWriter, r *http.Request, group GroupParameter)
 	// List all hosts
-	// (GET /hosts)
-	GetHosts(w http.ResponseWriter, r *http.Request)
+	// (GET /v1/hosts)
+	GetV1Hosts(w http.ResponseWriter, r *http.Request)
 	// List all nodes connected to a host
-	// (GET /{host})
-	GetHost(w http.ResponseWriter, r *http.Request, host HostParameter)
+	// (GET /v1/hosts/{host})
+	GetV1HostsHost(w http.ResponseWriter, r *http.Request, host HostParameter)
 	// Retrieve a node
-	// (GET /{host}/{node-id})
-	GetHostNodeId(w http.ResponseWriter, r *http.Request, host HostParameter, nodeId NodeIdParameter)
+	// (GET /v1/hosts/{host}/{node-id})
+	GetV1HostsHostNodeId(w http.ResponseWriter, r *http.Request, host HostParameter, nodeId NodeIdParameter)
 	// Retrieve a specific resource from a node payload
-	// (GET /{host}/{node-id}/{resource})
-	GetHostNodeIdResource(w http.ResponseWriter, r *http.Request, host HostParameter, nodeId NodeIdParameter, resource ResourcesParameter)
+	// (GET /v1/hosts/{host}/{node-id}/{resource})
+	GetV1HostsHostNodeIdResource(w http.ResponseWriter, r *http.Request, host HostParameter, nodeId NodeIdParameter, resource ResourcesParameter)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
 
 type Unimplemented struct{}
 
+// List all groups
+// (GET /v1/groups)
+func (_ Unimplemented) GetV1Groups(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List all nodes connected to a group
+// (GET /v1/groups/{group})
+func (_ Unimplemented) GetV1GroupsGroup(w http.ResponseWriter, r *http.Request, group GroupParameter) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // List all hosts
-// (GET /hosts)
-func (_ Unimplemented) GetHosts(w http.ResponseWriter, r *http.Request) {
+// (GET /v1/hosts)
+func (_ Unimplemented) GetV1Hosts(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // List all nodes connected to a host
-// (GET /{host})
-func (_ Unimplemented) GetHost(w http.ResponseWriter, r *http.Request, host HostParameter) {
+// (GET /v1/hosts/{host})
+func (_ Unimplemented) GetV1HostsHost(w http.ResponseWriter, r *http.Request, host HostParameter) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Retrieve a node
-// (GET /{host}/{node-id})
-func (_ Unimplemented) GetHostNodeId(w http.ResponseWriter, r *http.Request, host HostParameter, nodeId NodeIdParameter) {
+// (GET /v1/hosts/{host}/{node-id})
+func (_ Unimplemented) GetV1HostsHostNodeId(w http.ResponseWriter, r *http.Request, host HostParameter, nodeId NodeIdParameter) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Retrieve a specific resource from a node payload
-// (GET /{host}/{node-id}/{resource})
-func (_ Unimplemented) GetHostNodeIdResource(w http.ResponseWriter, r *http.Request, host HostParameter, nodeId NodeIdParameter, resource ResourcesParameter) {
+// (GET /v1/hosts/{host}/{node-id}/{resource})
+func (_ Unimplemented) GetV1HostsHostNodeIdResource(w http.ResponseWriter, r *http.Request, host HostParameter, nodeId NodeIdParameter, resource ResourcesParameter) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -64,12 +82,12 @@ type ServerInterfaceWrapper struct {
 
 type MiddlewareFunc func(http.Handler) http.Handler
 
-// GetHosts operation middleware
-func (siw *ServerInterfaceWrapper) GetHosts(w http.ResponseWriter, r *http.Request) {
+// GetV1Groups operation middleware
+func (siw *ServerInterfaceWrapper) GetV1Groups(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetHosts(w, r)
+		siw.Handler.GetV1Groups(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -79,8 +97,49 @@ func (siw *ServerInterfaceWrapper) GetHosts(w http.ResponseWriter, r *http.Reque
 	handler.ServeHTTP(w, r.WithContext(ctx))
 }
 
-// GetHost operation middleware
-func (siw *ServerInterfaceWrapper) GetHost(w http.ResponseWriter, r *http.Request) {
+// GetV1GroupsGroup operation middleware
+func (siw *ServerInterfaceWrapper) GetV1GroupsGroup(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var err error
+
+	// ------------- Path parameter "group" -------------
+	var group GroupParameter
+
+	err = runtime.BindStyledParameterWithOptions("simple", "group", chi.URLParam(r, "group"), &group, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "group", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetV1GroupsGroup(w, r, group)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r.WithContext(ctx))
+}
+
+// GetV1Hosts operation middleware
+func (siw *ServerInterfaceWrapper) GetV1Hosts(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetV1Hosts(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r.WithContext(ctx))
+}
+
+// GetV1HostsHost operation middleware
+func (siw *ServerInterfaceWrapper) GetV1HostsHost(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	var err error
@@ -95,7 +154,7 @@ func (siw *ServerInterfaceWrapper) GetHost(w http.ResponseWriter, r *http.Reques
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetHost(w, r, host)
+		siw.Handler.GetV1HostsHost(w, r, host)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -105,8 +164,8 @@ func (siw *ServerInterfaceWrapper) GetHost(w http.ResponseWriter, r *http.Reques
 	handler.ServeHTTP(w, r.WithContext(ctx))
 }
 
-// GetHostNodeId operation middleware
-func (siw *ServerInterfaceWrapper) GetHostNodeId(w http.ResponseWriter, r *http.Request) {
+// GetV1HostsHostNodeId operation middleware
+func (siw *ServerInterfaceWrapper) GetV1HostsHostNodeId(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	var err error
@@ -130,7 +189,7 @@ func (siw *ServerInterfaceWrapper) GetHostNodeId(w http.ResponseWriter, r *http.
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetHostNodeId(w, r, host, nodeId)
+		siw.Handler.GetV1HostsHostNodeId(w, r, host, nodeId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -140,8 +199,8 @@ func (siw *ServerInterfaceWrapper) GetHostNodeId(w http.ResponseWriter, r *http.
 	handler.ServeHTTP(w, r.WithContext(ctx))
 }
 
-// GetHostNodeIdResource operation middleware
-func (siw *ServerInterfaceWrapper) GetHostNodeIdResource(w http.ResponseWriter, r *http.Request) {
+// GetV1HostsHostNodeIdResource operation middleware
+func (siw *ServerInterfaceWrapper) GetV1HostsHostNodeIdResource(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	var err error
@@ -174,7 +233,7 @@ func (siw *ServerInterfaceWrapper) GetHostNodeIdResource(w http.ResponseWriter, 
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetHostNodeIdResource(w, r, host, nodeId, resource)
+		siw.Handler.GetV1HostsHostNodeIdResource(w, r, host, nodeId, resource)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -298,16 +357,22 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	}
 
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/hosts", wrapper.GetHosts)
+		r.Get(options.BaseURL+"/v1/groups", wrapper.GetV1Groups)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/{host}", wrapper.GetHost)
+		r.Get(options.BaseURL+"/v1/groups/{group}", wrapper.GetV1GroupsGroup)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/{host}/{node-id}", wrapper.GetHostNodeId)
+		r.Get(options.BaseURL+"/v1/hosts", wrapper.GetV1Hosts)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/{host}/{node-id}/{resource}", wrapper.GetHostNodeIdResource)
+		r.Get(options.BaseURL+"/v1/hosts/{host}", wrapper.GetV1HostsHost)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/hosts/{host}/{node-id}", wrapper.GetV1HostsHostNodeId)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/hosts/{host}/{node-id}/{resource}", wrapper.GetV1HostsHostNodeIdResource)
 	})
 
 	return r
