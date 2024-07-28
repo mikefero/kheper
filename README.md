@@ -168,12 +168,18 @@ defaults:
 
 # Node configuration for single or multiple control planes
 nodes:
-  - instances: 6
+  - instances: 8
     hostname: sequential
     id: sequential
     versions:
-      - 3.7.1
+      - 3.4.0
+      - 3.4.1
+      - 3.4.2
+      - 3.5.0
+      - 3.6.0
+      - 3.6.1
       - 3.7.0
+      - 3.7.1
     connection:
       host: localhost
       port: 8005
@@ -226,7 +232,7 @@ export KHEPER_DEFAULTS_RECONNECTION_INTERVAL=10s
 export KHEPER_DEFAULTS_RECONNECTION_JITTER=5s
 
 # Nodes
-export KHEPER_NODES_INSTANCES=6
+export KHEPER_NODES_INSTANCES=14
 export KHEPER_NODES_HOSTNAME=sequential
 export KHEPER_NODES_ID=sequential
 export KHEPER_NODES_VERSIONS=3.7.1,3.7.0

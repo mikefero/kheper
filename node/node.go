@@ -16,7 +16,6 @@ package node
 import (
 	"context"
 	"crypto/tls"
-	"embed"
 	"errors"
 	"fmt"
 	"net/http"
@@ -32,15 +31,11 @@ import (
 	"github.com/mikefero/kheper/internal/server"
 	"github.com/mikefero/kheper/internal/utils"
 	"go.uber.org/zap"
-	"gopkg.in/yaml.v3"
 )
 
 var (
 	// ErrNodeConnected is returned when the node is already started and connected.
 	ErrNodeConnected = errors.New("node is already started and connected")
-
-	//go:embed configuration.yml
-	nodeInfo embed.FS
 
 	apiServer *http.Server
 	once      sync.Once
@@ -100,12 +95,6 @@ type Opts struct {
 	Logger *zap.Logger
 }
 
-// Plugin is a Kong Gateway plugin.
-type Plugin struct {
-	Name     string `yaml:"name"`
-	Priority int    `yaml:"priority"`
-}
-
 // Info is a list of information about the node.
 type Info struct {
 	// ID is the unique ID of the node.
@@ -122,8 +111,6 @@ type Info struct {
 
 	// Group is the name of the group to which the node instance belongs.
 	Group *string
-	// Plugins is a list of plugins that the node supports.
-	Plugins []Plugin `yaml:"plugins"`
 }
 
 // NewNode creates a new node.
@@ -175,24 +162,6 @@ func NewNode(opts Opts) (*Node, error) {
 		}
 	}
 
-	// Load the node information file
-	data, err := nodeInfo.ReadFile("configuration.yml")
-	if err != nil {
-		return nil, fmt.Errorf("error reading node configuration file: %w", err)
-	}
-
-	// Parse the node information YAML file
-	var info Info
-	err = yaml.Unmarshal(data, &info)
-	if err != nil {
-		return nil, fmt.Errorf("error parsing node info file: %w", err)
-	}
-	info.Group = opts.Group
-	info.Host = opts.Host
-	info.Hostname = opts.Hostname
-	info.ID = opts.ID
-	info.Version = opts.Version
-
 	// Initialize the node logger with the node ID and host
 	var nodeLogger *zap.Logger
 	if opts.Group != nil {
@@ -210,6 +179,15 @@ func NewNode(opts Opts) (*Node, error) {
 			zap.String("id", opts.ID.String()),
 			zap.Any("version", opts.Version),
 		)
+	}
+
+	// Initialize the node information
+	info := Info{
+		Group:    opts.Group,
+		Host:     opts.Host,
+		Hostname: opts.Hostname,
+		ID:       opts.ID,
+		Version:  opts.Version,
 	}
 
 	// Create the appropriate protocol handler, path, and server URL

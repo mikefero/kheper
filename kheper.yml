@@ -17,12 +17,18 @@ defaults:
 
 # Node configuration for single or multiple control planes
 nodes:
-  - instances: 6
+  - instances: 8
     hostname: sequential
     id: sequential
     versions:
-      - 3.7.1
+      - 3.4.0
+      - 3.4.1
+      - 3.4.2
+      - 3.5.0
+      - 3.6.0
+      - 3.6.1
       - 3.7.0
+      - 3.7.1
     connection:
       host: localhost
       port: 8005
