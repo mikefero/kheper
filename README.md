@@ -279,8 +279,48 @@ The Kheper Mock Data Plane Node Application provides an Admin API to manage and 
 
 ##### Endpoints
 
+###### List All Groups
+- **Endpoint:** `/v1/groups`
+- **Method:** `GET`
+- **Summary:** Retrieve a list of all groups for data plane nodes connected to control planes.
+
+```json
+[
+  "kong-gateway-oss",
+  "kong-gateway-enterprise"
+]
+```
+
+###### List All Nodes Connected to a Group
+- **Endpoint:** `/v1/groups/{group}`
+- **Method:** `GET`
+- **Summary:** Retrieve a list of all nodes connected to a specific group.
+- **Parameters:**
+  - `group`: The name of the group.
+
+```json
+[
+  {
+    "id": "123e4567-e89b-12d3-a456-426614174000",
+    "cipher_suite": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+    "group": "kong-gateway-oss",
+    "hostname": "node1.example-host.com",
+    "tls_version": "TLSv1.2",
+    "version": "1.2.3"
+  },
+  {
+    "id": "223e4567-e89b-12d3-a456-426614174001",
+    "cipher_suite": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+    "group": "kong-gateway-oss",
+    "hostname": "node2.example-host.com",
+    "tls_version": "TLSv1.2",
+    "version": "1.2.3.1"
+  }
+]
+```
+
 ###### List All Hosts
-- **Endpoint:** `/hosts`
+- **Endpoint:** `/v1/hosts`
 - **Method:** `GET`
 - **Summary:** Retrieve a list of all hosts for data plane nodes connected to control planes.
 
@@ -299,7 +339,7 @@ The Kheper Mock Data Plane Node Application provides an Admin API to manage and 
 ```
 
 ###### List All Nodes Connected to a Host
-- **Endpoint:** `/{host}`
+- **Endpoint:** `/v1/hosts/{host}`
 - **Method:** `GET`
 - **Summary:** Retrieve a list of all nodes connected to a specific host or address.
 - **Parameters:**
@@ -327,7 +367,7 @@ The Kheper Mock Data Plane Node Application provides an Admin API to manage and 
 ```
 
 ###### Retrieve a Specific Node
-- **Endpoint:** `/{host}/{node-id}`
+- **Endpoint:** `/v1/hosts/{host}/{node-id}`
 - **Method:** `GET`
 - **Summary:** Retrieve a specific node.
 - **Parameters:**
@@ -380,7 +420,7 @@ The Kheper Mock Data Plane Node Application provides an Admin API to manage and 
 ```
 
 ###### Retrieve a Specific Resource from a Node Payload
-- **Endpoint:** `/{host}/{node-id}/{resource}`
+- **Endpoint:** `/v1/hosts/{host}/{node-id}/{resource}`
 - **Method:** `GET`
 - **Summary:** Retrieve a specific resource from the root level of the `config_table` in the payload JSON object of a node.
 - **Parameters:**
