@@ -5,7 +5,7 @@
 GOLANGCI_LINT_VERSION ?= v1.59.1
 OAPI_CODEGEN_CLI_VERSION ?= v2.3.0
 
-GOFILES := $(shell find $(APP_DIR) -name '*.go' ! -name '*_test.go')
+GOFILES := $(shell find $(APP_DIR) -name '*.go' ! -name '*_test.go' ! -path '$(APP_DIR)/internal/api/*')
 
 # Ensure curl, docker gofumpt are available
 ifeq (, $(shell which curl 2> /dev/null))
