@@ -58,6 +58,17 @@ the configuration options available:
 | `api.timeouts.read_header` | `KHEPER_API_TIMEOUTS_READ_HEADER` | The timeout for reading the headers. (default: **15s**) |
 | `api.timeouts.write` | `KHEPER_API_TIMEOUTS_WRITE` | The timeout for writing the response. (default: **15s**) |
 
+###### OpenTelemetry
+
+| YAML Key | Environment Variable | Description |
+|---|---|---|
+| `open_telemetry.enabled` | `KHEPER_OPEN_TELEMETRY_ENABLED` | Whether the OpenTelemetry collector should be enabled. (default: **false**) |
+| `open_telemetry.host` | `KHEPER_OPEN_TELEMETRY_HOST` | The host of the OpenTelemetry collector. (default: **localhost**) |
+| `open_telemetry.port` | `KHEPER_OPEN_TELEMETRY_PORT` | The port of the OpenTelemetry collector. (default: **4317**) |
+| `open_telemetry.service_name` | `KHEPER_OPEN_TELEMETRY_SERVICE_NAME` | The service name for the traces and metrics sent to the OpenTelemetry collector. (default: **kheper**) |
+| `open_telemetry.metric_interval` | `KHEPER_OPEN_TELEMETRY_METRIC_INTERVAL` | The interval at which the OpenTelemetry collector should collect metrics. (default: **2s**) |
+| `open_telemetry.shutdown_interval` | `KHEPER_OPEN_TELEMETRY_SHUTDOWN_INTERVAL` | The interval at which the OpenTelemetry collector should shutdown. (default: **10s**) |
+
 ##### Global configurations
 
 ###### Node
@@ -161,6 +172,15 @@ api:
     read_header: 15s
     write: 15s
 
+# OpenTelemetry configuration
+open_telemetry:
+  enabled: true
+  host: localhost
+  port: 4317
+  service_name: kheper
+  metric_interval: 2s
+  shutdown_interval: 10s
+
 # Global configuration for various features of Kheper
 globals:
   # Node Configurations that are shared across all nodes
@@ -230,6 +250,14 @@ export KHEPER_API_TIMEOUTS_READ=15s
 export KHEPER_API_TIMEOUTS_READ_HEADER=15s
 export KHEPER_API_TIMEOUTS_WRITE=15s
 
+# OpenTelemetry configuration
+export KHEPER_OPEN_TELEMETRY_ENABLED=true
+export KHEPER_OPEN_TELEMETRY_HOST=localhost
+export KHEPER_OPEN_TELEMETRY_PORT=4317
+export KHEPER_OPEN_TELEMETRY_SERVICE_NAME=kheper
+export KHEPER_OPEN_TELEMETRY_METRIC_INTERVAL=2s
+export KHEPER_OPEN_TELEMETRY_SHUTDOWN_INTERVAL=10s
+
 # Shared node configuration
 export KHEPER_GLOBALS_NODE_HANDSHAKE_TIMEOUT=15s
 export KHEPER_GLOBALS_NODE_NODE_CREATION_DELAY=20ms
@@ -268,14 +296,17 @@ WQgRxu0s1XJqvEgTCsMObNo5c87PA9NpmP2t0O2S8mjonJ2VUOE896CP
 
 ### Hostname and ID
 
-- `nodes.hostname` and `KHEPER_NODES_HOSTNAME`: The RFC 1123 hostname of the node.
+- `nodes.hostname` and `KHEPER_NODES_HOSTNAME`: The RFC 1123 hostname of the
+  node.
   - If **sequential** is specified, a sequential hostname will be generated.
 
 - `nodes.id` and `KHEPER_NODES_ID`: The unique ID of the node.
   - If **sequential** is specified, a sequential ID will be generated.
   - If **unique** is specified, a unique ID will be generated as a random UUID.
 
-> **Note:** If a specific value is provided for `hostname` or `id`, it will be used as-is. However, if `instances` is greater than 1, the same `hostname` and `id` will be duplicated for each instance.
+> **Note:** If a specific value is provided for `hostname` or `id`, it will be
+  used as-is. However, if `instances` is greater than 1, the same `hostname` and
+  `id` will be duplicated for each instance.
 
 ### Running Kheper
 
@@ -288,14 +319,24 @@ To run Kheper, use the following command:
 
 #### Admin API for Kheper Mock Data Plane Node Application
 
-The Kheper Mock Data Plane Node Application provides an Admin API to manage and retrieve information about hosts and nodes connected to control planes. This API allows users to list all hosts, nodes connected to a specific host, retrieve specific nodes, and access particular resources from a node's payload. Below are the available endpoints and their functionalities:
+The Kheper Mock Data Plane Node Application provides an Admin API to manage and
+retrieve information about hosts and nodes connected to control planes. This API
+allows users to list all hosts, nodes connected to a specific host, retrieve
+specific nodes, and access particular resources from a node's payload. Below are
+the available endpoints and their functionalities:
 
 ##### Endpoints
+
+When OpenTelemetry is enabled, the response will contain the following headers:
+
+- `X-Span-Id`: The span context of the request.
+- `X-Trace-Id`: The trace ID of the request.
 
 ###### List All Groups
 - **Endpoint:** `/v1/groups`
 - **Method:** `GET`
-- **Summary:** Retrieve a list of all groups for data plane nodes connected to control planes.
+- **Summary:** Retrieve a list of all groups for data plane nodes connected to
+  control planes.
 
 ```json
 [
@@ -335,7 +376,8 @@ The Kheper Mock Data Plane Node Application provides an Admin API to manage and 
 ###### List All Hosts
 - **Endpoint:** `/v1/hosts`
 - **Method:** `GET`
-- **Summary:** Retrieve a list of all hosts for data plane nodes connected to control planes.
+- **Summary:** Retrieve a list of all hosts for data plane nodes connected to
+  control planes.
 
 ```json
 [
@@ -354,7 +396,8 @@ The Kheper Mock Data Plane Node Application provides an Admin API to manage and 
 ###### List All Nodes Connected to a Host
 - **Endpoint:** `/v1/hosts/{host}`
 - **Method:** `GET`
-- **Summary:** Retrieve a list of all nodes connected to a specific host or address.
+- **Summary:** Retrieve a list of all nodes connected to a specific host or
+  address.
 - **Parameters:**
   - `host`: The IP address or hostname of the control plane.
 
@@ -435,7 +478,8 @@ The Kheper Mock Data Plane Node Application provides an Admin API to manage and 
 ###### Retrieve a Specific Resource from a Node Payload
 - **Endpoint:** `/v1/hosts/{host}/{node-id}/{resource}`
 - **Method:** `GET`
-- **Summary:** Retrieve a specific resource from the root level of the `config_table` in the payload JSON object of a node.
+- **Summary:** Retrieve a specific resource from the root level of the
+  `config_table` in the payload JSON object of a node.
 - **Parameters:**
   - `host`: The IP address or hostname of the control plane.
   - `node-id`: The node ID in UUID format.
@@ -520,15 +564,38 @@ configuration fields.
 To test Kheper with Kong Gateway, you can use the following commands to start
 and stop Kong Gateway:
 
-```
+```bash
 make kong-up
 make kong-down
+```
+
+To have the containers log to stdout, you can use the following command:
+
+```bash
+make kong-up-stdout
+```
+
+### Testing With Jaeger, Grafana, and Prometheus
+
+To test Kheper with Jaeger, Grafana, and Prometheus, you can use the following
+commands to start and stop the services which will allow the metrics to be
+viewed:
+
+```bash
+make monitoring-up
+make monitoring-down
+```
+
+To have the containers log to stdout, you can use the following command:
+
+```bash
+make monitoring-up-stdout
 ```
 
 ## TODO
 
 - Develop a handler for the JSON-RPC protocol.
-- Integrate observability metrics and create Grafana dashboards.
+- Create default Grafana dashboards.
 - Incorporate a configuration section for both standard and custom plugins.
 
 ## License
@@ -547,6 +614,8 @@ Kheper is licensed under the Apache License, Version 2.0. See the
   converting, validation, and more).
 - [mockio] - A mocking framework for Go that helps in creating and using mocks
   for testing purposes.
+- [OpenTelemetry] - High-quality, ubiquitous, and portable telemetry to enable
+  effective observability
 - [viper] - Go configuration with fangs.
 - [zap] - Blazing fast, structured, leveled logging in Go.
 
@@ -563,5 +632,6 @@ Kheper is licensed under the Apache License, Version 2.0. See the
 [LICENSE]: LICENSE
 [mockio]: https://github.com/ovechkin-dm/mockio/mock
 [OpenSSL documentation]: https://www.openssl.org/docs/man1.1.1/man1/ciphers.html
+[OpenTelemetry]: https://opentelemetry.io/
 [viper]: https://github.com/spf13/viper
 [zap]: https://github.com/uber-go/zap

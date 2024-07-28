@@ -28,6 +28,8 @@ import (
 	"github.com/mikefero/kheper/internal/database"
 	"github.com/mikefero/kheper/internal/utils"
 	middleware "github.com/oapi-codegen/nethttp-middleware"
+	"github.com/riandyrn/otelchi"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 )
 
@@ -48,6 +50,9 @@ type Opts struct {
 	ReadHeaderTimeout time.Duration
 	// WriteTimeout is the timeout for writing the response.
 	WriteTimeout time.Duration
+	// OpenTelemetryEnabled is a flag to indicate whether OpenTelemetry is
+	// enabled or not.
+	OpenTelemetryEnabled bool
 	// Logger is the logger to use for logging.
 	Logger *zap.Logger
 }
@@ -110,6 +115,10 @@ func NewServer(opts Opts) (*http.Server, error) {
 		router := chi.NewRouter()
 		router.Use(chiLogger(logger))
 		router.Use(chiPanicHandler(logger))
+		if opts.OpenTelemetryEnabled {
+			router.Use(otelchi.Middleware("kheper", otelchi.WithChiRoutes(router)))
+			router.Use(traceResponse)
+		}
 		router.Use(validator)
 
 		// Create the handler
@@ -194,4 +203,18 @@ func chiPanicHandler(logger *zap.Logger) func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+func traceResponse(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		span := trace.SpanFromContext(r.Context())
+		if span != nil {
+			spanContext := span.SpanContext()
+			if spanContext.IsValid() {
+				w.Header().Set("X-Trace-Id", spanContext.TraceID().String())
+				w.Header().Set("X-Span-Id", spanContext.SpanID().String())
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
 }

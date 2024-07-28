@@ -14,6 +14,7 @@
 package database_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/google/uuid"
@@ -55,12 +56,12 @@ func TestDatabase(t *testing.T) {
 		}
 
 		// Set the node
-		err = d.SetNode(expected)
+		err = d.SetNode(context.TODO(), expected)
 		require.NoError(t, err)
-		defer d.DeleteNode("localhost", id)
+		defer d.DeleteNode(context.TODO(), "localhost", id)
 
 		// Verify the node
-		actual, err := d.GetNode("localhost", id)
+		actual, err := d.GetNode(context.TODO(), "localhost", id)
 		require.NoError(t, err)
 		require.Equal(t, &expected, actual)
 	})
@@ -80,12 +81,12 @@ func TestDatabase(t *testing.T) {
 		}
 
 		// Set the node
-		err = d.SetNode(expected)
+		err = d.SetNode(context.TODO(), expected)
 		require.NoError(t, err)
-		defer d.DeleteNode("localhost", id)
+		defer d.DeleteNode(context.TODO(), "localhost", id)
 
 		// Verify the node
-		actual, err := d.GetNode("localhost", id)
+		actual, err := d.GetNode(context.TODO(), "localhost", id)
 		require.NoError(t, err)
 		require.Equal(t, &expected, actual)
 	})
@@ -105,23 +106,23 @@ func TestDatabase(t *testing.T) {
 		}
 
 		// Set the Node
-		err = d.SetNode(expected)
+		err = d.SetNode(context.TODO(), expected)
 		require.NoError(t, err)
-		defer d.DeleteNode("localhost", id)
+		defer d.DeleteNode(context.TODO(), "localhost", id)
 
 		// Verify the node
-		actual, err := d.GetNode("localhost", id)
+		actual, err := d.GetNode(context.TODO(), "localhost", id)
 		require.NoError(t, err)
 		require.Equal(t, &expected, actual)
 
 		// Update the node
 		payload = map[string]interface{}{"is_valid": false}
 		expected.Payload = payload
-		err = d.SetNode(expected)
+		err = d.SetNode(context.TODO(), expected)
 		require.NoError(t, err)
 
 		// Verify the updated node
-		actual, err = d.GetNode("localhost", id)
+		actual, err = d.GetNode(context.TODO(), "localhost", id)
 		require.NoError(t, err)
 		require.Equal(t, &expected, actual)
 	})
@@ -149,18 +150,18 @@ func TestDatabase(t *testing.T) {
 		}
 
 		// Set the node
-		err = d.SetNode(expectedNode1)
+		err = d.SetNode(context.TODO(), expectedNode1)
 		require.NoError(t, err)
-		err = d.SetNode(expectedNode2)
+		err = d.SetNode(context.TODO(), expectedNode2)
 		require.NoError(t, err)
-		defer d.DeleteNode("localhost", node1ID)
-		defer d.DeleteNode("localhost", node2ID)
+		defer d.DeleteNode(context.TODO(), "localhost", node1ID)
+		defer d.DeleteNode(context.TODO(), "localhost", node2ID)
 
 		// Verify the nodes
-		actual, err := d.GetNode("localhost", node1ID)
+		actual, err := d.GetNode(context.TODO(), "localhost", node1ID)
 		require.NoError(t, err)
 		require.Equal(t, &expectedNode1, actual)
-		actual, err = d.GetNode("localhost", node2ID)
+		actual, err = d.GetNode(context.TODO(), "localhost", node2ID)
 		require.NoError(t, err)
 		require.Equal(t, &expectedNode2, actual)
 	})
@@ -180,26 +181,26 @@ func TestDatabase(t *testing.T) {
 		}
 
 		// Verify the node is not found
-		actual, err := d.GetNode("localhost", id)
+		actual, err := d.GetNode(context.TODO(), "localhost", id)
 		require.Equal(t, database.ErrNodeNotFound, err)
 		require.Nil(t, actual)
 
 		// Set the node
-		err = d.SetNode(expected)
+		err = d.SetNode(context.TODO(), expected)
 		require.NoError(t, err)
-		defer d.DeleteNode("localhost", id)
+		defer d.DeleteNode(context.TODO(), "localhost", id)
 
 		// Verify the node
-		actual, err = d.GetNode("localhost", id)
+		actual, err = d.GetNode(context.TODO(), "localhost", id)
 		require.NoError(t, err)
 		require.Equal(t, &expected, actual)
 
 		// Delete the node
-		err = d.DeleteNode("localhost", id)
+		err = d.DeleteNode(context.TODO(), "localhost", id)
 		require.NoError(t, err)
 
 		// Verify the node is not found
-		actual, err = d.GetNode("localhost", id)
+		actual, err = d.GetNode(context.TODO(), "localhost", id)
 		require.Equal(t, database.ErrNodeNotFound, err)
 		require.Nil(t, actual)
 	})
@@ -209,7 +210,7 @@ func TestDatabase(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, d)
 
-		_, err = d.GetNode("localhost", uuid.New())
+		_, err = d.GetNode(context.TODO(), "localhost", uuid.New())
 		require.Equal(t, database.ErrNodeNotFound, err)
 	})
 
@@ -218,7 +219,7 @@ func TestDatabase(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, d)
 
-		hosts, err := d.GetHosts()
+		hosts, err := d.GetHosts(context.TODO())
 		require.NoError(t, err)
 		require.Len(t, hosts, 0)
 	})
@@ -241,12 +242,12 @@ func TestDatabase(t *testing.T) {
 		}
 
 		// Set the node
-		err = d.SetNode(expected)
+		err = d.SetNode(context.TODO(), expected)
 		require.NoError(t, err)
-		defer d.DeleteNode("localhost", id)
+		defer d.DeleteNode(context.TODO(), "localhost", id)
 
 		// Verify the host
-		hosts, err := d.GetHosts()
+		hosts, err := d.GetHosts(context.TODO())
 		require.NoError(t, err)
 		require.Len(t, hosts, 1)
 		require.Equal(t, "localhost", hosts[0].Hostname)
@@ -263,7 +264,7 @@ func TestDatabase(t *testing.T) {
 		group1 := "test-1"
 		node2ID := uuid.New()
 		payload := map[string]interface{}{"is_valid": true}
-		err = d.SetNode(database.Node{
+		err = d.SetNode(context.TODO(), database.Node{
 			ControlPlaneHost: "localhost",
 			Group:            &group1,
 			Hostname:         "kheper.local",
@@ -272,7 +273,7 @@ func TestDatabase(t *testing.T) {
 			Version:          "1.2.3",
 		})
 		require.NoError(t, err)
-		err = d.SetNode(database.Node{
+		err = d.SetNode(context.TODO(), database.Node{
 			ControlPlaneHost: "kheper.example.com",
 			Hostname:         "kheper.local",
 			ID:               node2ID.String(),
@@ -280,10 +281,10 @@ func TestDatabase(t *testing.T) {
 			Version:          "1.2.3.1",
 		})
 		require.NoError(t, err)
-		defer d.DeleteNode("localhost", node1ID)
-		defer d.DeleteNode("kheper.example.com", node2ID)
+		defer d.DeleteNode(context.TODO(), "localhost", node1ID)
+		defer d.DeleteNode(context.TODO(), "kheper.example.com", node2ID)
 
-		hosts, err := d.GetHosts()
+		hosts, err := d.GetHosts(context.TODO())
 		require.NoError(t, err)
 		require.Len(t, hosts, 2)
 		require.ElementsMatch(t, []database.Hosts{
@@ -306,7 +307,7 @@ func TestDatabase(t *testing.T) {
 		node2ID := uuid.New()
 		group := "test"
 		payload := map[string]interface{}{"is_valid": true}
-		err = d.SetNode(database.Node{
+		err = d.SetNode(context.TODO(), database.Node{
 			ControlPlaneHost: "localhost",
 			Group:            &group,
 			Hostname:         "kheper.local",
@@ -315,7 +316,7 @@ func TestDatabase(t *testing.T) {
 			Version:          "1.2.3",
 		})
 		require.NoError(t, err)
-		err = d.SetNode(database.Node{
+		err = d.SetNode(context.TODO(), database.Node{
 			ControlPlaneHost: "localhost",
 			Group:            &group,
 			Hostname:         "kheper.local",
@@ -324,10 +325,10 @@ func TestDatabase(t *testing.T) {
 			Version:          "1.2.3.1",
 		})
 		require.NoError(t, err)
-		defer d.DeleteNode("localhost", node1ID)
-		defer d.DeleteNode("localhost", node2ID)
+		defer d.DeleteNode(context.TODO(), "localhost", node1ID)
+		defer d.DeleteNode(context.TODO(), "localhost", node2ID)
 
-		hosts, err := d.GetHosts()
+		hosts, err := d.GetHosts(context.TODO())
 		require.NoError(t, err)
 		require.Len(t, hosts, 1)
 		require.Equal(t, "localhost", hosts[0].Hostname)
@@ -340,7 +341,7 @@ func TestDatabase(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, d)
 
-		_, err = d.GetNodesByHost("localhost")
+		_, err = d.GetNodesByHost(context.TODO(), "localhost")
 		require.Equal(t, database.ErrHostNotFound, err)
 	})
 
@@ -360,12 +361,12 @@ func TestDatabase(t *testing.T) {
 		}
 
 		// Set the node
-		err = d.SetNode(expected)
+		err = d.SetNode(context.TODO(), expected)
 		require.NoError(t, err)
-		defer d.DeleteNode("localhost", id)
+		defer d.DeleteNode(context.TODO(), "localhost", id)
 
 		// Verify the node
-		nodes, err := d.GetNodesByHost("localhost")
+		nodes, err := d.GetNodesByHost(context.TODO(), "localhost")
 		require.NoError(t, err)
 		require.Len(t, nodes, 1)
 		require.Equal(t, expected, nodes[0])
@@ -395,15 +396,15 @@ func TestDatabase(t *testing.T) {
 		}
 
 		// Set the node
-		err = d.SetNode(expectedNode1)
+		err = d.SetNode(context.TODO(), expectedNode1)
 		require.NoError(t, err)
-		err = d.SetNode(expectedNode2)
+		err = d.SetNode(context.TODO(), expectedNode2)
 		require.NoError(t, err)
-		defer d.DeleteNode("localhost", node1ID)
-		defer d.DeleteNode("localhost", node2ID)
+		defer d.DeleteNode(context.TODO(), "localhost", node1ID)
+		defer d.DeleteNode(context.TODO(), "localhost", node2ID)
 
 		// Verify the nodes
-		nodes, err := d.GetNodesByHost("localhost")
+		nodes, err := d.GetNodesByHost(context.TODO(), "localhost")
 		require.NoError(t, err)
 		require.Len(t, nodes, 2)
 		require.ElementsMatch(t, []database.Node{expectedNode1, expectedNode2}, nodes)
@@ -426,12 +427,12 @@ func TestDatabase(t *testing.T) {
 		}
 
 		// Set the node
-		err = d.SetNode(expected)
+		err = d.SetNode(context.TODO(), expected)
 		require.NoError(t, err)
-		defer d.DeleteNode("localhost", id)
+		defer d.DeleteNode(context.TODO(), "localhost", id)
 
 		// Verify the node
-		actual, err := d.GetNode("localhost", id)
+		actual, err := d.GetNode(context.TODO(), "localhost", id)
 		require.NoError(t, err)
 		require.Equal(t, &expected, actual)
 	})
@@ -453,12 +454,12 @@ func TestDatabase(t *testing.T) {
 		}
 
 		// Set the node
-		err = d.SetNode(expected)
+		err = d.SetNode(context.TODO(), expected)
 		require.NoError(t, err)
-		defer d.DeleteNode("localhost", id)
+		defer d.DeleteNode(context.TODO(), "localhost", id)
 
 		// Verify the node
-		actual, err := d.GetNodesByGroup(group)
+		actual, err := d.GetNodesByGroup(context.TODO(), group)
 		require.NoError(t, err)
 		require.Len(t, actual, 1)
 		require.Equal(t, expected, actual[0])
@@ -492,15 +493,15 @@ func TestDatabase(t *testing.T) {
 		}
 
 		// Set the nodes
-		err = d.SetNode(expected[0])
+		err = d.SetNode(context.TODO(), expected[0])
 		require.NoError(t, err)
-		defer d.DeleteNode("localhost", nodeID1)
-		err = d.SetNode(expected[1])
+		defer d.DeleteNode(context.TODO(), "localhost", nodeID1)
+		err = d.SetNode(context.TODO(), expected[1])
 		require.NoError(t, err)
-		defer d.DeleteNode("localhost", nodeID2)
+		defer d.DeleteNode(context.TODO(), "localhost", nodeID2)
 
 		// Verify the node
-		actual, err := d.GetNodesByGroup(group)
+		actual, err := d.GetNodesByGroup(context.TODO(), group)
 		require.NoError(t, err)
 		require.Len(t, actual, 2)
 		require.ElementsMatch(t, expected, actual)
@@ -512,7 +513,7 @@ func TestDatabase(t *testing.T) {
 		require.NotNil(t, d)
 
 		// Attempt to retrieve invalid group when there are no nodes
-		actual, err := d.GetNodesByGroup("invalid")
+		actual, err := d.GetNodesByGroup(context.TODO(), "invalid")
 		require.Equal(t, database.ErrHostNotFound, err)
 		require.Nil(t, actual)
 
@@ -530,12 +531,12 @@ func TestDatabase(t *testing.T) {
 		}
 
 		// Set the node
-		err = d.SetNode(expected)
+		err = d.SetNode(context.TODO(), expected)
 		require.NoError(t, err)
-		defer d.DeleteNode("localhost", nodeID)
+		defer d.DeleteNode(context.TODO(), "localhost", nodeID)
 
 		// Attempt to retrieve invalid group
-		actual, err = d.GetNodesByGroup("invalid")
+		actual, err = d.GetNodesByGroup(context.TODO(), "invalid")
 		require.Equal(t, database.ErrHostNotFound, err)
 		require.Nil(t, actual)
 	})

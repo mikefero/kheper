@@ -29,8 +29,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/kong/semver/v4"
 	"github.com/mikefero/kheper/internal/config"
+	"github.com/mikefero/kheper/internal/monitoring"
 	"github.com/mikefero/kheper/internal/utils"
 	"github.com/mikefero/kheper/node"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	"go.uber.org/zap"
 )
 
@@ -92,6 +95,15 @@ func main() {
 		return nodeConfiguration.ReconnectionInterval + time.Duration(jitter.Int64())
 	}
 
+	// Handle metric collection
+	metrics, err := monitoring.NewMonitoring(monitoring.Opts{
+		OpenTelemetry: config.OpenTelemetry,
+		Logger:        logger,
+	})
+	if err != nil {
+		panic(fmt.Errorf("error creating monitoring: %w", err))
+	}
+
 	// Create the nodes from the configuration. In order to ensure that user
 	// break signals are handled properly and the nodes are created in a goroutine.
 	for _, n := range config.Nodes {
@@ -142,7 +154,7 @@ func main() {
 							cipherSuite != 0 &&
 							!utils.ValidateCipherSuite(cipherSuite, tlsVersion) {
 							panic(fmt.Sprintf("cipher suite %s is not supported by TLS version %s",
-								n.Connection.CipherSuites, n.Connection.TLSVersion))
+								cipherSuiteStr, n.Connection.TLSVersion))
 						}
 					}
 
@@ -193,6 +205,7 @@ func main() {
 						PingInterval:     nodeConfiguration.PingInterval,
 						PingJitter:       nodeConfiguration.PingJitter,
 						APIConfiguration: &config.API,
+						OpenTelemetry:    config.OpenTelemetry,
 						Logger:           logger,
 					}
 
@@ -207,6 +220,19 @@ func main() {
 					go func() {
 						defer nodeWG.Done()
 
+						// Create the metric attributes for the retry connection count
+						var metricAttributes []attribute.KeyValue
+						metricAttributes = []attribute.KeyValue{
+							attribute.String("host", n.Connection.Host),
+							attribute.String("hostname", hostname),
+							attribute.String("node-id", nodeID.String()),
+							attribute.String("version", version.String()),
+						}
+						if n.Group != nil {
+							metricAttributes = append(metricAttributes, attribute.String("group", *n.Group))
+						}
+						metricOptions := metric.WithAttributes(metricAttributes...)
+
 						for {
 							select {
 							case <-ctx.Done():
@@ -218,6 +244,7 @@ func main() {
 									case <-ctx.Done():
 										return
 									case <-time.After(reconnectionInternal()):
+										metrics.RetryConnectionCount.Add(context.Background(), 1, metricOptions)
 										continue
 									}
 								}
@@ -256,6 +283,7 @@ func main() {
 	// Wait for a signal
 	<-breakSignal
 	logger.Info("user requested shutdown")
+	metrics.Shutdown(ctx)
 	cancel()
 	instancesCreateWG.Wait()
 	nodeWG.Wait()

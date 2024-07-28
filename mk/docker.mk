@@ -18,3 +18,15 @@ kong-up:
 .PHONY: kong-up-stdout
 kong-up-stdout:
 	@docker compose -f "$(APP_DIR)/docker/kong/docker-compose.yml" up
+
+.PHONY: monitoring-down
+monitoring-down:
+	@docker compose -f "$(APP_DIR)/docker/monitoring/docker-compose.yml" down
+
+.PHONY: monitoring-up
+monitoring-up:
+	@docker compose -f "$(APP_DIR)/docker/monitoring/docker-compose.yml" up -d
+
+.PHONY: monitoring-up-stdout
+monitoring-up-stdout:
+	@docker compose -f "$(APP_DIR)/docker/monitoring/docker-compose.yml" up
