@@ -6,14 +6,16 @@ server:
     read_header: 15s
     write: 15s
 
-# Node defaults configuration that are shared across all nodes
-defaults:
-  handshake_timeout: 15s
-  node_creation_delay: 20ms
-  ping_interval: 15s
-  ping_jitter: 5s
-  reconnection_interval: 10s
-  reconnection_jitter: 5s
+# Global configuration for various features of Kheper
+globals:
+  # Node Configurations that are shared across all nodes
+  node:
+    handshake_timeout: 15s
+    node_creation_delay: 20ms
+    ping_interval: 15s
+    ping_jitter: 5s
+    reconnection_interval: 10s
+    reconnection_jitter: 5s
 
 # Node configuration for single or multiple control planes
 nodes:

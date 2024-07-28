@@ -43,16 +43,22 @@ var defaultNodeVersions = []string{"3.7.0.0"}
 // Config is the configuration for the connection and mock nodes to instantiate
 // and run.
 type Config struct {
-	// Defaults are the default values for the nodes.
-	Defaults Defaults `yaml:"defaults" mapstructure:"defaults"`
+	// Globals are the global values for various features of Kheper.
+	Globals Globals `yaml:"globals" mapstructure:"globals"`
 	// Nodes are the nodes to instantiate and run.
 	Nodes []Node `yaml:"nodes" mapstructure:"nodes"`
 	// Server is the configuration for the API server to run.
 	Server Server `yaml:"server" mapstructure:"server"`
 }
 
-// Defaults are the default values for the nodes.
-type Defaults struct {
+// Global are the global values for various features of Kheper.
+type Globals struct {
+	// Node is the global configuration values for the nodes.
+	Node GlobalsNode `yaml:"node" mapstructure:"node"`
+}
+
+// GlobalsNode are the global configuration values for the nodes.
+type GlobalsNode struct {
 	// HandshakeTimeout is the amount of time allowed to complete the WebSocket
 	// handshake.
 	HandshakeTimeout time.Duration `yaml:"handshake_timeout" mapstructure:"handshake_timeout"`
@@ -141,12 +147,12 @@ type Timeouts struct {
 // environment variables, and defaults.
 func NewConfig() (*Config, error) {
 	// Connection defaults
-	viper.SetDefault("defaults.handshake_timeout", defaultHandshakeTimeout)
-	viper.SetDefault("defaults.node_creation_delay", defaultNodeCreationDelay)
-	viper.SetDefault("defaults.ping_interval", defaultPingInterval)
-	viper.SetDefault("defaults.ping_jitter", defaultPingJitter)
-	viper.SetDefault("defaults.reconnection_interval", defaultReconnectionInterval)
-	viper.SetDefault("defaults.reconnection_jitter", defaultReconnectionJitter)
+	viper.SetDefault("globals.node.handshake_timeout", defaultHandshakeTimeout)
+	viper.SetDefault("globals.node.node_creation_delay", defaultNodeCreationDelay)
+	viper.SetDefault("globals.node.ping_interval", defaultPingInterval)
+	viper.SetDefault("globals.node.ping_jitter", defaultPingJitter)
+	viper.SetDefault("globals.node.reconnection_interval", defaultReconnectionInterval)
+	viper.SetDefault("globals.node.reconnection_jitter", defaultReconnectionJitter)
 
 	// Node defaults
 	viper.SetDefault("nodes.hostname", defaultNodeHostname)
