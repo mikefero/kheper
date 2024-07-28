@@ -48,6 +48,16 @@ the configuration options available:
 
 #### Configuration Options
 
+###### Kheper Admin API
+
+| YAML Key | Environment Variable | Description |
+|---|---|---|
+| `api.enabled` | `KHEPER_API_ENABLED` | Whether the admin API server should be enabled. (default: **false**) |
+| `api.port` | `KHEPER_API_PORT` | The port to run the Aadmin PI server on. (default: **5000**) |
+| `api.timeouts.read` | `KHEPER_API_TIMEOUTS_READ` | The timeout for reading the request body. (default: **15s**) |
+| `api.timeouts.read_header` | `KHEPER_API_TIMEOUTS_READ_HEADER` | The timeout for reading the headers. (default: **15s**) |
+| `api.timeouts.write` | `KHEPER_API_TIMEOUTS_WRITE` | The timeout for writing the response. (default: **15s**) |
+
 ##### Global configurations
 
 ###### Node
@@ -69,7 +79,7 @@ the configuration options available:
 | `nodes.group` | `KHEPER_NODES_GROUP` | The name of the group to which the node instance belongs. |
 | `nodes.hostname` | `KHEPER_NODES_HOSTNAME` | The RFC 1123 hostname of the node. This can be a `sequential` hostname or a specific hostname. when `sequential` is specified, a sequential hostname will be generated starting with `00000000-0000-4000-8000-000000000001` and incrementing by 1 hexadecimal digit for each node. (default: **sequential**) |
 | `nodes.id` | `KHEPER_NODES_ID` | The unique ID of the node. This can be a `sequential`, `unique`, or a specific UUID. When `sequential` is specified, a sequential UUID will be generated starting with `00000000-0000-4000-8000-000000000001` and incrementing by 1 hexadecimal digit for each node. When `unique` is specified, a unique UUID will be generated. (default: **sequential**) |
-| `nodes.versions` | `KHEPER_NODES_VERSIONS` | The Kong Gateway semantic versions of the node. This version can be represented as 3 or 4 integers separated by dots (e.g. 1.2.3 or 1.2.3.4). Each version in the slice will be "round-robin" across the nodes based on the number of instances. (default: **3.7.0.0**) |
+| `nodes.versions` | `KHEPER_NODES_VERSIONS` | The Kong Gateway semantic versions of the node. This version can be represented as 3 or 4 integers separated by dots (e.g. 1.2.3 or 1.2.3.4). Each version in the slice will be "round-robin" across the nodes based on the number of instances. (default: **3.7.1**) |
 
 ###### Connection
 
@@ -82,15 +92,6 @@ the configuration options available:
 | `nodes.connection.tls_version` | `KHEPER_NODES_CONNECTION_TLS_VERSION` | The TLS version to use when connecting to the control plane. If not specified, TLS v1.3 will be used. |
 | `nodes.connection.certificate` | `KHEPER_NODES_CONNECTION_CERTIFICATE` | The TLS certificate in PEM format to use when connecting to the control plane. |
 | `nodes.connection.key` | `KHEPER_NODES_CONNECTION_KEY` | The TLS key in PEM format to use when connecting to the control plane. |
-
-###### Kheper Admin API Server
-
-| YAML Key | Environment Variable | Description |
-|---|---|---|
-| `server.port` | `KHEPER_SERVER_PORT` | The port to run the API server on. (default: **5000**) |
-| `server.timeouts.read` | `KHEPER_SERVER_TIMEOUTS_READ` | The timeout for reading the request body. (default: **15s**) |
-| `server.timeouts.read_header` | `KHEPER_SERVER_TIMEOUTS_READ_HEADER` | The timeout for reading the headers. (default: **15s**) |
-| `server.timeouts.write` | `KHEPER_SERVER_TIMEOUTS_WRITE` | The timeout for writing the response. (default: **15s**) |
 
 #### Cipher Suites
 
@@ -152,7 +153,8 @@ Here is an example YAML configuration file:
 
 ```yaml
 # Admin API server configuration
-server:
+api:
+  enabled: true
   port: 5000
   timeouts:
     read: 15s
@@ -221,11 +223,12 @@ nodes:
 You can override the YAML configuration using environment variables:
 
 ```bash
-# Server
-export KHEPER_SERVER_PORT=5000
-export KHEPER_SERVER_TIMEOUTS_READ=15s
-export KHEPER_SERVER_TIMEOUTS_READ_HEADER=15s
-export KHEPER_SERVER_TIMEOUTS_WRITE=15s
+# API
+export KHEPER_API_ENABLED=true
+export KHEPER_API_PORT=5000
+export KHEPER_API_TIMEOUTS_READ=15s
+export KHEPER_API_TIMEOUTS_READ_HEADER=15s
+export KHEPER_API_TIMEOUTS_WRITE=15s
 
 # Shared node configuration
 export KHEPER_GLOBALS_NODE_HANDSHAKE_TIMEOUT=15s

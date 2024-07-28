@@ -32,7 +32,7 @@ func TestConfig(t *testing.T) {
 		require.NoError(t, err)
 
 		expected := &config.Config{
-			Server: config.Server{
+			API: config.API{
 				Port: 5000,
 				Timeouts: config.Timeouts{
 					Read:       15 * time.Second,
@@ -58,7 +58,7 @@ func TestConfig(t *testing.T) {
 					Instances: 1,
 					Hostname:  "sequential",
 					ID:        "sequential",
-					Versions:  []string{"3.7.0.0"},
+					Versions:  []string{"3.7.1"},
 				},
 			},
 		}
@@ -66,9 +66,9 @@ func TestConfig(t *testing.T) {
 	})
 
 	t.Run("verify full configuration when using environment variables and defaults", func(t *testing.T) {
-		t.Setenv("KHEPER_SERVER_PORT", "4747")
-		t.Setenv("KHEPER_SERVER_TIMEOUTS_READ_HEADER", "1s")
-		t.Setenv("KHEPER_SERVER_TIMEOUTS_WRITE", "10s")
+		t.Setenv("KHEPER_API_PORT", "4747")
+		t.Setenv("KHEPER_API_TIMEOUTS_READ_HEADER", "1s")
+		t.Setenv("KHEPER_API_TIMEOUTS_WRITE", "10s")
 		t.Setenv("KHEPER_NODES_CONNECTION_HOST", "localhost")
 		t.Setenv("KHEPER_NODES_CONNECTION_PORT", "3737")
 		t.Setenv("KHEPER_NODES_CONNECTION_CERTIFICATE", "certificate")
@@ -77,7 +77,7 @@ func TestConfig(t *testing.T) {
 		require.NoError(t, err)
 
 		expected := &config.Config{
-			Server: config.Server{
+			API: config.API{
 				Port: 4747,
 				Timeouts: config.Timeouts{
 					Read:       15 * time.Second,
@@ -107,7 +107,7 @@ func TestConfig(t *testing.T) {
 					Instances: 1,
 					Hostname:  "sequential",
 					ID:        "sequential",
-					Versions:  []string{"3.7.0.0"},
+					Versions:  []string{"3.7.1"},
 				},
 			},
 		}
@@ -121,7 +121,8 @@ func TestConfig(t *testing.T) {
 			t.Fatalf("unable to create config file: %v", err)
 		}
 		defer file.Close()
-		_, err = file.Write([]byte(`server:
+		_, err = file.Write([]byte(`api:
+  enabled: true
   port: 4747
   timeouts:
     write: 10s
@@ -142,8 +143,9 @@ nodes:
 
 		group := "test"
 		expected := &config.Config{
-			Server: config.Server{
-				Port: 4747,
+			API: config.API{
+				Enabled: true,
+				Port:    4747,
 				Timeouts: config.Timeouts{
 					Read:       15 * time.Second,
 					ReadHeader: 15 * time.Second,
@@ -173,7 +175,7 @@ nodes:
 					Group:     &group,
 					Hostname:  "sequential",
 					ID:        "sequential",
-					Versions:  []string{"3.7.0.0"},
+					Versions:  []string{"3.7.1"},
 				},
 			},
 		}
@@ -189,7 +191,7 @@ nodes:
 			t.Fatalf("unable to create config file: %v", err)
 		}
 		defer file.Close()
-		_, err = file.Write([]byte(`server:
+		_, err = file.Write([]byte(`api:
   port: 4747
   timeouts:
     read: 10s
@@ -210,7 +212,7 @@ nodes:
 		require.NoError(t, err)
 
 		expected := &config.Config{
-			Server: config.Server{
+			API: config.API{
 				Port: 4747,
 				Timeouts: config.Timeouts{
 					Read:       10 * time.Second,
@@ -240,7 +242,7 @@ nodes:
 					Instances: 1,
 					Hostname:  "sequential",
 					ID:        "sequential",
-					Versions:  []string{"3.7.0.0"},
+					Versions:  []string{"3.7.1"},
 				},
 			},
 		}
@@ -248,10 +250,11 @@ nodes:
 	})
 
 	t.Run("verify defaults are overridden when environment variables are set", func(t *testing.T) {
-		t.Setenv("KHEPER_SERVER_PORT", "4747")
-		t.Setenv("KHEPER_SERVER_TIMEOUTS_READ", "10s")
-		t.Setenv("KHEPER_SERVER_TIMEOUTS_READ_HEADER", "10s")
-		t.Setenv("KHEPER_SERVER_TIMEOUTS_WRITE", "10s")
+		t.Setenv("KHEPER_API_ENABLED", "true")
+		t.Setenv("KHEPER_API_PORT", "4747")
+		t.Setenv("KHEPER_API_TIMEOUTS_READ", "10s")
+		t.Setenv("KHEPER_API_TIMEOUTS_READ_HEADER", "10s")
+		t.Setenv("KHEPER_API_TIMEOUTS_WRITE", "10s")
 		t.Setenv("KHEPER_GLOBALS_NODE_HANDSHAKE_TIMEOUT", "1s")
 		t.Setenv("KHEPER_GLOBALS_NODE_NODE_CREATION_DELAY", "2ms")
 		t.Setenv("KHEPER_GLOBALS_NODE_PING_INTERVAL", "3s")
@@ -273,8 +276,9 @@ nodes:
 
 		group := "kheper"
 		expected := &config.Config{
-			Server: config.Server{
-				Port: 4747,
+			API: config.API{
+				Enabled: true,
+				Port:    4747,
 				Timeouts: config.Timeouts{
 					Read:       10 * time.Second,
 					ReadHeader: 10 * time.Second,
@@ -315,7 +319,7 @@ nodes:
 	t.Run("verify defaults are overridden when configuration file is set", func(t *testing.T) {
 		dir := t.TempDir()
 		expected := &config.Config{
-			Server: config.Server{
+			API: config.API{
 				Port: 4747,
 				Timeouts: config.Timeouts{
 					Read:       10 * time.Second,
