@@ -71,6 +71,9 @@ type Monitoring struct {
 	CompressedSize metric.Float64Gauge
 	// RetryConnectionCount is the number of retry connection attempts.
 	RetryConnectionCount metric.Int64Counter
+	// MissingRequiredPayloadEntities is the number of nodes that are missing
+	// required payload entities.
+	MissingRequiredPayloadEntities metric.Int64Counter
 
 	shutdown func(ctx context.Context, logger *zap.Logger)
 	logger   *zap.Logger
@@ -118,19 +121,20 @@ func NewMonitoring(opts Opts) (*Monitoring, error) {
 		// Create a no-op monitoring instance if OpenTelemetry is not enabled
 		if !opts.OpenTelemetry.Enabled {
 			singleton = &Monitoring{
-				HostConnectionGauge:     NoopInt64Gauge{},
-				GroupConnectionGauge:    NoopInt64Gauge{},
-				ConnectionGauge:         NoopInt64Gauge{},
-				DisconnectionErrorCount: NoopInt64Counter{},
-				ReadMessageCount:        NoopInt64Counter{},
-				ReadMessageErrorCount:   NoopInt64Counter{},
-				ReadMessagePanicCount:   NoopInt64Counter{},
-				PingCount:               NoopInt64Counter{},
-				PongCount:               NoopInt64Counter{},
-				UncompressedSize:        NoopFloat64Gauge{},
-				CompressedSize:          NoopFloat64Gauge{},
-				RetryConnectionCount:    NoopInt64Counter{},
-				shutdown:                func(_ context.Context, _ *zap.Logger) {},
+				HostConnectionGauge:            NoopInt64Gauge{},
+				GroupConnectionGauge:           NoopInt64Gauge{},
+				ConnectionGauge:                NoopInt64Gauge{},
+				DisconnectionErrorCount:        NoopInt64Counter{},
+				ReadMessageCount:               NoopInt64Counter{},
+				ReadMessageErrorCount:          NoopInt64Counter{},
+				ReadMessagePanicCount:          NoopInt64Counter{},
+				PingCount:                      NoopInt64Counter{},
+				PongCount:                      NoopInt64Counter{},
+				UncompressedSize:               NoopFloat64Gauge{},
+				CompressedSize:                 NoopFloat64Gauge{},
+				RetryConnectionCount:           NoopInt64Counter{},
+				MissingRequiredPayloadEntities: NoopInt64Counter{},
+				shutdown:                       func(_ context.Context, _ *zap.Logger) {},
 			}
 			return
 		}
@@ -264,19 +268,30 @@ func NewMonitoring(opts Opts) (*Monitoring, error) {
 			return
 		}
 
+		// Create the missing required payload entities counter
+		missingRequiredPayloadEntities, mErr := meter.Int64Counter(
+			fmt.Sprintf("%s_missing_required_payload_entities", serviceName),
+			metric.WithDescription("number of nodes that are missing required payload entities"),
+		)
+		if mErr != nil {
+			err = fmt.Errorf("failed to create missing required payload entities metric: %w", err)
+			return
+		}
+
 		singleton = &Monitoring{
-			HostConnectionGauge:     hostConnectionGauge,
-			GroupConnectionGauge:    groupConnectionGauge,
-			ConnectionGauge:         connectionGauge,
-			DisconnectionErrorCount: disconnectionErrorCount,
-			ReadMessageCount:        readMessageCount,
-			ReadMessageErrorCount:   readMessageErrorCount,
-			ReadMessagePanicCount:   readMessagePanicCount,
-			PingCount:               pingCount,
-			PongCount:               pongCount,
-			UncompressedSize:        uncompressedSize,
-			CompressedSize:          compressedSize,
-			RetryConnectionCount:    retryConnectionCount,
+			HostConnectionGauge:            hostConnectionGauge,
+			GroupConnectionGauge:           groupConnectionGauge,
+			ConnectionGauge:                connectionGauge,
+			DisconnectionErrorCount:        disconnectionErrorCount,
+			ReadMessageCount:               readMessageCount,
+			ReadMessageErrorCount:          readMessageErrorCount,
+			ReadMessagePanicCount:          readMessagePanicCount,
+			PingCount:                      pingCount,
+			PongCount:                      pongCount,
+			UncompressedSize:               uncompressedSize,
+			CompressedSize:                 compressedSize,
+			RetryConnectionCount:           retryConnectionCount,
+			MissingRequiredPayloadEntities: missingRequiredPayloadEntities,
 
 			shutdown: shutdown,
 			logger:   opts.Logger,

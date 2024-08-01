@@ -90,6 +90,7 @@ the configuration options available:
 | `nodes.group` | `KHEPER_NODES_GROUP` | The name of the group to which the node instance belongs. |
 | `nodes.hostname` | `KHEPER_NODES_HOSTNAME` | The RFC 1123 hostname of the node. This can be a `sequential` hostname or a specific hostname. when `sequential` is specified, a sequential hostname will be generated starting with `00000000-0000-4000-8000-000000000001` and incrementing by 1 hexadecimal digit for each node. (default: **sequential**) |
 | `nodes.id` | `KHEPER_NODES_ID` | The unique ID of the node. This can be a `sequential`, `unique`, or a specific UUID. When `sequential` is specified, a sequential UUID will be generated starting with `00000000-0000-4000-8000-000000000001` and incrementing by 1 hexadecimal digit for each node. When `unique` is specified, a unique UUID will be generated. (default: **sequential**) |
+| `nodes.required_payload_entities` | `KHEPER_NODES_REQUIRED_PAYLOAD_ENTITIES` | The entities that must be present in the payload sent from the control plane. |
 | `nodes.versions` | `KHEPER_NODES_VERSIONS` | The Kong Gateway semantic versions of the node. This version can be represented as 3 or 4 integers separated by dots (e.g. 1.2.3 or 1.2.3.4). Each version in the slice will be "round-robin" across the nodes based on the number of instances. (default: **3.7.1**) |
 
 ###### Connection
@@ -197,6 +198,8 @@ nodes:
   - instances: 8
     hostname: sequential
     id: sequential
+    require_payload_entities:
+      - parameters
     versions:
       - 3.4.0
       - 3.4.1
@@ -270,6 +273,7 @@ export KHEPER_GLOBALS_NODE_RECONNECTION_JITTER=5s
 export KHEPER_NODES_INSTANCES=14
 export KHEPER_NODES_HOSTNAME=sequential
 export KHEPER_NODES_ID=sequential
+export KHEPER_NODES_REQUIRED_PAYLOAD_ENTITIES=parameters
 export KHEPER_NODES_VERSIONS=3.7.1,3.7.0
 export KHEPER_NODES_CONNECTION_HOST=localhost
 export KHEPER_NODES_CONNECTION_PORT=8005

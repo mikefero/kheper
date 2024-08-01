@@ -35,6 +35,11 @@ type HostNode struct {
 	// Id The node ID
 	Id openapi_types.UUID `json:"id"`
 
+	// MissingRequiredPayloadEntities Missing required payload entities is the list of entities that are
+	// missing from the configuration payload sent from the control
+	// plane.
+	MissingRequiredPayloadEntities *[]string `json:"missing_required_payload_entities,omitempty"`
+
 	// TlsVersion TLS version is the TLS version used when establishing a connection
 	// to the control plane.
 	TlsVersion string `json:"tls_version"`

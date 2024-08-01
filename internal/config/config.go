@@ -132,6 +132,9 @@ type Node struct {
 	// ID will be generated, if 'unique' is specified a unique ID will be
 	// generated; otherwise, the ID will be used as-is.
 	ID string `yaml:"id" mapstructure:"id"`
+	// RequiredPayloadEntities is the list of entities that must be present in
+	// the configuration payload sent from the control plane.
+	RequiredPayloadEntities []string `yaml:"required_payload_entities" mapstructure:"required_payload_entities"`
 	// Versions is the Kong Gateway semantic versions of the node. This version
 	// can be represented as 3 or 4 integers separated by dots (e.g. 1.2.3 or
 	// 1.2.3.4). Each version in the slice will be "round-robin" across the
@@ -219,6 +222,9 @@ func NewConfig() (*Config, error) {
 	viper.SetEnvPrefix("kheper")
 	if err := viper.BindEnv("nodes.group"); err != nil {
 		return nil, fmt.Errorf("unable to bind nodes.group environment variable: %w", err)
+	}
+	if err := viper.BindEnv("nodes.required_payload_entities"); err != nil {
+		return nil, fmt.Errorf("unable to bind nodes.required_payload_entities environment variable: %w", err)
 	}
 	if err := viper.BindEnv("nodes.connection.host"); err != nil {
 		return nil, fmt.Errorf("unable to bind nodes.connection.host environment variable: %w", err)

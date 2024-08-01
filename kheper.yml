@@ -32,6 +32,8 @@ nodes:
   - instances: 8
     hostname: sequential
     id: sequential
+    required_payload_entities:
+      - parameters
     versions:
       - 3.4.0
       - 3.4.1
