@@ -413,7 +413,7 @@ func TestNode(t *testing.T) {
 	})
 
 	t.Run("can start a node and connect to a control plane server and handle node events", func(t *testing.T) {
-		// t.Parallel()
+		t.Parallel()
 		SetUp(t)
 
 		mockServer := createMockServer(t)
@@ -424,17 +424,19 @@ func TestNode(t *testing.T) {
 		When(serverHandler.OnPingHandler(Any[string](), pingCaptor.Capture())).ThenReturn([]byte("control-plane")).ThenAnswer(nil)
 		defer mockServer.cancel()
 
+		logger := zap.NewNop()
 		n, err := node.NewNode(node.Opts{
-			Host:             mockServer.host,
-			Port:             mockServer.port,
-			Protocol:         node.Standard,
-			Certificate:      mockServer.tlsConfig.Certificates[0],
-			ID:               uuid.New(),
-			Hostname:         "kheper.local",
-			HandshakeTimeout: 5 * time.Second,
-			PingInterval:     100 * time.Millisecond,
-			PingJitter:       1,
-			Logger:           zap.NewNop(),
+			Host:                    mockServer.host,
+			Port:                    mockServer.port,
+			Protocol:                node.Standard,
+			RequiredPayloadEntities: []string{"routes"},
+			Certificate:             mockServer.tlsConfig.Certificates[0],
+			ID:                      uuid.New(),
+			Hostname:                "kheper.local",
+			HandshakeTimeout:        5 * time.Second,
+			PingInterval:            100 * time.Millisecond,
+			PingJitter:              1,
+			Logger:                  logger,
 		})
 		require.NoError(t, err)
 		require.NotNil(t, n)
@@ -453,7 +455,16 @@ func TestNode(t *testing.T) {
 		var buf bytes.Buffer
 		gzipWriter := gzip.NewWriter(&buf)
 		defer gzipWriter.Close()
-		_, err = gzipWriter.Write([]byte(`{"config_hash": "1f764bed6e9dd06e1f764bed6e9dd06e"}`))
+		_, err = gzipWriter.Write([]byte(`{
+			"config_hash": "1f764bed6e9dd06e1f764bed6e9dd06e",
+			"config_table": {
+				"services": [
+					{
+						"name": "service1"
+					}
+				]
+			}
+		}`))
 		require.NoError(t, err)
 		gzipWriter.Close()
 		sessionCaptor.Last().Send(buf.Bytes())

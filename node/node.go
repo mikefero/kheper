@@ -74,6 +74,9 @@ type Opts struct {
 	ID uuid.UUID
 	// Hostname is the RFC 1123 hostname of the node.
 	Hostname string
+	// RequiredPayloadEntities is the list of entities that must be present in
+	// the configuration payload sent from the control plane.
+	RequiredPayloadEntities []string
 	// Version is the Kong Gateway semantic version of the node. This version
 	// can be represented as 3 or 4 integers separated by dots (e.g. 1.2.3 or
 	// 1.2.3.4).
@@ -108,6 +111,9 @@ type Info struct {
 	Host string
 	// Hostname is the RFC 1123 hostname of the node.
 	Hostname string
+	// RequiredPayloadEntities is the list of entities that must be present in
+	// the configuration payload sent from the control plane.
+	RequiredPayloadEntities []string
 	// Version is the Kong Gateway semantic version of the node. This version
 	// can be represented as 3 or 4 integers separated by dots (e.g. 1.2.3 or
 	// 1.2.3.4).
@@ -208,11 +214,12 @@ func NewNode(opts Opts) (*Node, error) {
 
 	// Initialize the node information
 	info := Info{
-		Group:    opts.Group,
-		Host:     opts.Host,
-		Hostname: opts.Hostname,
-		ID:       opts.ID,
-		Version:  opts.Version,
+		Group:                   opts.Group,
+		Host:                    opts.Host,
+		Hostname:                opts.Hostname,
+		ID:                      opts.ID,
+		RequiredPayloadEntities: opts.RequiredPayloadEntities,
+		Version:                 opts.Version,
 	}
 
 	// Initialize the trace attributes

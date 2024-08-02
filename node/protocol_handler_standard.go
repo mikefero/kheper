@@ -206,16 +206,44 @@ func (s *protocolHandlerStandard) OnReadMessageHandler(messageType int, message 
 	}
 	span.SetAttributes(attribute.String("hash", fmt.Sprintf("%v", configuration["config_hash"])))
 
+	// Check if the configuration is missing required payload entities
+	missingRequiredPayloadEntities := []string{}
+	ct, ok := configuration["config_table"]
+	if !ok {
+		span.SetAttributes(attribute.String("error", "missing config_table field in configuration"))
+		s.logger.Error("missing config_table field in configuration")
+		s.metrics.MissingRequiredPayloadEntities.Add(ctx, 1, metric.WithAttributes(s.attributes...))
+	}
+	configTable, ok := ct.(map[string]interface{})
+	if !ok {
+		span.SetAttributes(attribute.String("error", "config_table field in configuration is not a JSON object"))
+		s.logger.Error("config_table field in configuration is not a JSON object")
+		s.metrics.MissingRequiredPayloadEntities.Add(ctx, 1, metric.WithAttributes(s.attributes...))
+	} else {
+		for _, requiredPayloadEntity := range s.nodeInfo.RequiredPayloadEntities {
+			if _, ok := configTable[requiredPayloadEntity]; !ok {
+				span.SetAttributes(attribute.String("error", "missing required payload entity"),
+					attribute.String("entity", requiredPayloadEntity))
+				s.logger.Error("missing required payload entity", zap.String("entity", requiredPayloadEntity))
+				missingRequiredPayloadEntities = append(missingRequiredPayloadEntities, requiredPayloadEntity)
+				attributes := s.attributes
+				attributes = append(attributes, attribute.String("entity", requiredPayloadEntity))
+				s.metrics.MissingRequiredPayloadEntities.Add(ctx, 1, metric.WithAttributes(attributes...))
+			}
+		}
+	}
+
 	// Set the node configuration
 	node := database.Node{
-		CipherSuite:      tls.CipherSuiteName(s.session.ConnectionState.CipherSuite),
-		ControlPlaneHost: s.nodeInfo.Host,
-		Group:            s.nodeInfo.Group,
-		Hostname:         s.nodeInfo.Hostname,
-		ID:               s.nodeInfo.ID.String(),
-		Payload:          configuration,
-		TLSVersion:       tlsVersionString(s.session.ConnectionState.Version),
-		Version:          s.nodeInfo.Version.String(),
+		CipherSuite:                    tls.CipherSuiteName(s.session.ConnectionState.CipherSuite),
+		ControlPlaneHost:               s.nodeInfo.Host,
+		Group:                          s.nodeInfo.Group,
+		Hostname:                       s.nodeInfo.Hostname,
+		ID:                             s.nodeInfo.ID.String(),
+		Payload:                        configuration,
+		TLSVersion:                     tlsVersionString(s.session.ConnectionState.Version),
+		MissingRequiredPayloadEntities: missingRequiredPayloadEntities,
+		Version:                        s.nodeInfo.Version.String(),
 	}
 	if err := s.db.SetNode(ctx, node); err != nil {
 		s.logger.Error("failed to set configuration", zap.Error(err))

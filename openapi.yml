@@ -206,6 +206,17 @@ components:
           description: |
             TLS version is the TLS version used when establishing a connection
             to the control plane.
+        missing_required_payload_entities:
+          type: array
+          items:
+            type: string
+          example:
+            - "parameters"
+            - "license"
+          description: |
+            Missing required payload entities is the list of entities that are
+            missing from the configuration payload sent from the control
+            plane.
         version:
           type: string
           example: "1.2.3"

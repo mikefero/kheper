@@ -1162,5 +1162,88 @@ func TestServer(t *testing.T) {
 			r.Header("Content-Type").IsEqual("application/json")
 			require.JSONEq(t, expected, r.Body().Raw())
 		})
+
+		t.Run("verify missing required payload entities exist for a node in host node listing", func(t *testing.T) {
+			id := uuid.New()
+			node := database.Node{
+				CipherSuite:      "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+				ControlPlaneHost: "localhost",
+				Hostname:         "kheper.local",
+				ID:               id.String(),
+				Payload: map[string]interface{}{
+					"config_table": map[string]interface{}{
+						"services": []interface{}{
+							map[string]interface{}{
+								"name": "service1",
+							},
+						},
+					},
+				},
+				TLSVersion:                     "TLSv1.3",
+				MissingRequiredPayloadEntities: []string{"routes"},
+				Version:                        "1.2.3",
+			}
+			err := db.SetNode(context.TODO(), node)
+			require.NoError(t, err)
+			defer db.DeleteNode(context.TODO(), "localhost", id)
+
+			expected := []map[string]interface{}{
+				{
+					"cipher_suite":                      node.CipherSuite,
+					"hostname":                          node.Hostname,
+					"id":                                id,
+					"tls_version":                       node.TLSVersion,
+					"missing_required_payload_entities": []string{"routes"},
+					"version":                           node.Version,
+				},
+			}
+			client.GET("/v1/hosts/localhost").
+				Expect().
+				Status(http.StatusOK).
+				JSON().
+				Array().
+				IsEqual(expected)
+		})
+
+		t.Run("verify missing required payload entities exist for a node in node", func(t *testing.T) {
+			id := uuid.New()
+			node := database.Node{
+				CipherSuite:      "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+				ControlPlaneHost: "localhost",
+				Hostname:         "kheper.local",
+				ID:               id.String(),
+				Payload: map[string]interface{}{
+					"config_table": map[string]interface{}{
+						"services": []interface{}{
+							map[string]interface{}{
+								"name": "service1",
+							},
+						},
+					},
+				},
+				TLSVersion:                     "TLSv1.3",
+				MissingRequiredPayloadEntities: []string{"routes"},
+				Version:                        "1.2.3",
+			}
+			err := db.SetNode(context.TODO(), node)
+			require.NoError(t, err)
+			defer db.DeleteNode(context.TODO(), "localhost", id)
+
+			expected := map[string]interface{}{
+				"cipher_suite":                      node.CipherSuite,
+				"hostname":                          node.Hostname,
+				"id":                                id,
+				"payload":                           node.Payload,
+				"tls_version":                       node.TLSVersion,
+				"missing_required_payload_entities": []string{"routes"},
+				"version":                           node.Version,
+			}
+			client.GET("/v1/hosts/localhost/{id}", id).
+				Expect().
+				Status(http.StatusOK).
+				JSON().
+				Object().
+				IsEqual(expected)
+		})
 	})
 }

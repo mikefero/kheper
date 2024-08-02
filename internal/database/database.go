@@ -69,6 +69,9 @@ type Node struct {
 	// TLSVersion is the TLS version used when establishing a connection to the
 	// control plane.
 	TLSVersion string
+	// MissingRequiredPayloadEntities is the list of entities that are missing
+	// from the configuration payload sent from the control plane.
+	MissingRequiredPayloadEntities []string
 	// Version is the Kong Gateway semantic version of the node. This version
 	// can be represented as 3 or 4 integers separated by dots (e.g. 1.2.3 or
 	// 1.2.3.4).

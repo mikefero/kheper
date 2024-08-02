@@ -34,22 +34,24 @@ type v1Hosts struct {
 }
 
 type v1HostNode struct {
-	CipherSuite string             `json:"cipher_suite"`
-	Group       *string            `json:"group,omitempty"`
-	Hostname    string             `json:"hostname"`
-	ID          openapi_types.UUID `json:"id"`
-	TLSVersion  string             `json:"tls_version"`
-	Version     string             `json:"version"`
+	CipherSuite                    string             `json:"cipher_suite"`
+	Group                          *string            `json:"group,omitempty"`
+	Hostname                       string             `json:"hostname"`
+	ID                             openapi_types.UUID `json:"id"`
+	TLSVersion                     string             `json:"tls_version"`
+	MissingRequiredPayloadEntities []string           `json:"missing_required_payload_entities,omitempty"`
+	Version                        string             `json:"version"`
 }
 
 type v1Node struct {
-	CipherSuite string                 `json:"cipher_suite"`
-	Group       *string                `json:"group,omitempty"`
-	Hostname    string                 `json:"hostname"`
-	ID          openapi_types.UUID     `json:"id"`
-	Payload     map[string]interface{} `json:"payload"`
-	TLSVersion  string                 `json:"tls_version"`
-	Version     string                 `json:"version"`
+	CipherSuite                    string                 `json:"cipher_suite"`
+	Group                          *string                `json:"group,omitempty"`
+	Hostname                       string                 `json:"hostname"`
+	ID                             openapi_types.UUID     `json:"id"`
+	Payload                        map[string]interface{} `json:"payload"`
+	TLSVersion                     string                 `json:"tls_version"`
+	MissingRequiredPayloadEntities []string               `json:"missing_required_payload_entities,omitempty"`
+	Version                        string                 `json:"version"`
 }
 
 func (h *handler) GetV1Groups(w http.ResponseWriter, r *http.Request) {
@@ -125,14 +127,16 @@ func (h *handler) GetV1GroupsGroup(w http.ResponseWriter, r *http.Request, group
 		cipherSuite := node.CipherSuite
 		hostname := node.Hostname
 		tlsVersion := node.TLSVersion
+		missingRequiredPayloadEntities := node.MissingRequiredPayloadEntities
 		version := node.Version
 		hostNodesResponse = append(hostNodesResponse, v1HostNode{
-			ID:          id,
-			CipherSuite: cipherSuite,
-			Group:       node.Group,
-			Hostname:    hostname,
-			TLSVersion:  tlsVersion,
-			Version:     version,
+			ID:                             id,
+			CipherSuite:                    cipherSuite,
+			Group:                          node.Group,
+			Hostname:                       hostname,
+			TLSVersion:                     tlsVersion,
+			MissingRequiredPayloadEntities: missingRequiredPayloadEntities,
+			Version:                        version,
 		})
 	}
 
@@ -236,14 +240,16 @@ func (h *handler) GetV1HostsHost(w http.ResponseWriter, r *http.Request, host ap
 		cipherSuite := node.CipherSuite
 		hostname := node.Hostname
 		tlsVersion := node.TLSVersion
+		missingRequiredPayloadEntities := node.MissingRequiredPayloadEntities
 		version := node.Version
 		hostNodesResponse = append(hostNodesResponse, v1HostNode{
-			ID:          id,
-			CipherSuite: cipherSuite,
-			Group:       node.Group,
-			Hostname:    hostname,
-			TLSVersion:  tlsVersion,
-			Version:     version,
+			ID:                             id,
+			CipherSuite:                    cipherSuite,
+			Group:                          node.Group,
+			Hostname:                       hostname,
+			TLSVersion:                     tlsVersion,
+			MissingRequiredPayloadEntities: missingRequiredPayloadEntities,
+			Version:                        version,
 		})
 	}
 
@@ -295,13 +301,14 @@ func (h *handler) GetV1HostsHostNodeId(w http.ResponseWriter, r *http.Request, h
 
 	// Create the node response
 	nodeResponse := v1Node{
-		ID:          nodeId,
-		CipherSuite: node.CipherSuite,
-		Group:       node.Group,
-		Hostname:    node.Hostname,
-		Payload:     node.Payload,
-		TLSVersion:  node.TLSVersion,
-		Version:     node.Version,
+		ID:                             nodeId,
+		CipherSuite:                    node.CipherSuite,
+		Group:                          node.Group,
+		Hostname:                       node.Hostname,
+		Payload:                        node.Payload,
+		TLSVersion:                     node.TLSVersion,
+		MissingRequiredPayloadEntities: node.MissingRequiredPayloadEntities,
+		Version:                        node.Version,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
