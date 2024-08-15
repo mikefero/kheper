@@ -92,6 +92,7 @@ func NewServer(opts Opts) (*http.Server, error) {
 		swagger, err = api.GetSwagger()
 		if err != nil {
 			err = fmt.Errorf("unable to retrieve swagger: %w", err)
+			return
 		}
 
 		logger := opts.Logger.With(zap.String("component", "router"))

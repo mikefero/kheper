@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package node
+package ws
 
 import (
 	"bytes"
@@ -25,6 +25,7 @@ import (
 	"io"
 	"math/big"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -32,6 +33,7 @@ import (
 	"github.com/mikefero/ankh"
 	"github.com/mikefero/kheper/internal/database"
 	"github.com/mikefero/kheper/internal/monitoring"
+	"github.com/mikefero/kheper/node"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
@@ -43,24 +45,87 @@ var (
 	defaultConfigurationHash = strings.Repeat("0", 32)
 	nodes                    = map[string]int64{}
 	nodesMutex               sync.Mutex
+
+	ErrNotConnected = errors.New("not Connected")
 )
+
+type HandlerBuilder struct {
+	HandshakeTimeout time.Duration
+	PingInterval     time.Duration
+	PingJitter       time.Duration
+}
+
+func (b *HandlerBuilder) Build(opts node.ProtocolHandlerBuildOpts) (node.ProtocolHandler, error) {
+	var err error
+
+	if b.PingInterval <= 0 {
+		return nil, errors.New("ping interval must be > 0")
+	}
+	if b.PingJitter <= 0 {
+		return nil, errors.New("ping jitter must be > 0")
+	}
+
+	handler := &protocolHandlerStandard{
+		db:           opts.Db,
+		logger:       opts.Logger,
+		nodeInfo:     opts.NodeInfo,
+		pingInterval: b.PingInterval,
+		pingJitter:   b.PingJitter,
+		attributes:   opts.Attributes,
+		metrics:      opts.Metrics,
+	}
+
+	handler.client, err = ankh.NewWebSocketClient(ankh.WebSocketClientOpts{
+		Handler:          handler,
+		HandShakeTimeout: b.HandshakeTimeout,
+		ServerURL: url.URL{
+			Scheme: "wss",
+			Host:   fmt.Sprintf("%s:%d", opts.ConnectionOpts.Host, opts.ConnectionOpts.Port),
+			Path:   "/v1/outlet",
+			RawQuery: url.Values{
+				"node_id":       []string{opts.NodeInfo.ID.String()},
+				"node_hostname": []string{opts.ConnectionOpts.Host},
+				"node_version":  []string{opts.NodeInfo.Version.String()},
+			}.Encode(),
+		},
+		TLSConfig: opts.ConnectionOpts.TLSConfig,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return handler, nil
+}
 
 type protocolHandlerStandard struct {
 	cancel       context.CancelFunc
 	db           *database.Database
 	logger       *zap.Logger
-	nodeInfo     Info
+	nodeInfo     node.Info
 	pingInterval time.Duration
 	pingJitter   time.Duration
 
 	attributes []attribute.KeyValue
 	metrics    *monitoring.Monitoring
 
+	client  *ankh.WebSocketClient
 	session *ankh.Session
 
 	// once is used to ensure that the node responds to a new configuration with a
 	// ping immediately after receiving it.
 	once sync.Once
+}
+
+func (s *protocolHandlerStandard) IsConnected() bool {
+	return s.client != nil && s.client.IsConnected()
+}
+
+func (s *protocolHandlerStandard) Run(ctx context.Context) error {
+	if s.client == nil {
+		return ErrNotConnected
+	}
+
+	return s.client.Run(ctx)
 }
 
 func (s *protocolHandlerStandard) OnConnectedHandler(_ *http.Response, session *ankh.Session) error {
@@ -89,7 +154,7 @@ func (s *protocolHandlerStandard) OnConnectedHandler(_ *http.Response, session *
 		Hostname:         s.nodeInfo.Hostname,
 		ID:               s.nodeInfo.ID.String(),
 		Payload:          map[string]interface{}{},
-		TLSVersion:       tlsVersionString(s.session.ConnectionState.Version),
+		TLSVersion:       node.TLSVersionString(s.session.ConnectionState.Version),
 		Version:          s.nodeInfo.Version.String(),
 		Group:            s.nodeInfo.Group,
 	}
@@ -241,7 +306,7 @@ func (s *protocolHandlerStandard) OnReadMessageHandler(messageType int, message 
 		Hostname:                       s.nodeInfo.Hostname,
 		ID:                             s.nodeInfo.ID.String(),
 		Payload:                        configuration,
-		TLSVersion:                     tlsVersionString(s.session.ConnectionState.Version),
+		TLSVersion:                     node.TLSVersionString(s.session.ConnectionState.Version),
 		MissingRequiredPayloadEntities: missingRequiredPayloadEntities,
 		Version:                        s.nodeInfo.Version.String(),
 	}
@@ -278,7 +343,7 @@ func (s *protocolHandlerStandard) OnReadMessagePanicHandler(err error) {
 	s.logger.Error("read message panic", zap.Error(err))
 }
 
-func (s *protocolHandlerStandard) close() error {
+func (s *protocolHandlerStandard) Close() error {
 	_, span := monitoring.Tracer.Start(context.Background(), "close",
 		trace.WithAttributes(s.attributes...))
 	defer span.End()
@@ -314,12 +379,12 @@ func (s *protocolHandlerStandard) ping(ctx context.Context) error {
 	return nil
 }
 
-func sendInfo(ctx context.Context, session *ankh.Session, info Info) error {
+func sendInfo(ctx context.Context, session *ankh.Session, info node.Info) error {
 	ctx, span := monitoring.Tracer.Start(ctx, "sendInfo")
 	defer span.End()
 
 	// Create the basic info message
-	basicInfo := GetStandardBasicInfo(ctx, info.Version.String())
+	basicInfo := node.GetStandardBasicInfo(ctx, info.Version.String())
 	jsonBasicInfo, err := json.Marshal(basicInfo)
 	if err != nil {
 		return fmt.Errorf("unable to marshal basic info message: %w", err)

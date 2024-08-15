@@ -42,6 +42,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/mikefero/ankh"
+	"github.com/mikefero/kheper/internal/protocols/ws"
 	"github.com/mikefero/kheper/node"
 	"github.com/ovechkin-dm/mockio/matchers"
 	. "github.com/ovechkin-dm/mockio/mock"
@@ -303,25 +304,25 @@ func TestNode(t *testing.T) {
 		require.Nil(t, n)
 	})
 
-	t.Run("verify JSONRPC protocol is not supported", func(t *testing.T) {
-		t.Parallel()
-
-		node, err := node.NewNode(node.Opts{
-			Host:     "localhost",
-			Port:     3737,
-			Protocol: node.JSONRPC,
-		})
-		require.ErrorContains(t, err, "JSONRPC is not supported")
-		require.Nil(t, node)
-	})
+	// t.Run("verify JSONRPC protocol is not supported", func(t *testing.T) {
+	// 	t.Parallel()
+	//
+	// 	node, err := node.NewNode(node.Opts{
+	// 		Host: "localhost",
+	// 		Port: 3737,
+	// 		// Protocol: node.JSONRPC,
+	// 	})
+	// 	require.ErrorContains(t, err, "JSONRPC is not supported")
+	// 	require.Nil(t, node)
+	// })
 
 	t.Run("verify node ID must be set", func(t *testing.T) {
 		t.Parallel()
 
 		node, err := node.NewNode(node.Opts{
-			Host:     "localhost",
-			Port:     3737,
-			Protocol: node.Standard,
+			Host:           "localhost",
+			Port:           3737,
+			HandlerBuilder: &ws.HandlerBuilder{},
 		})
 		require.ErrorContains(t, err, "node ID must be set")
 		require.Nil(t, node)
@@ -331,20 +332,20 @@ func TestNode(t *testing.T) {
 		t.Parallel()
 
 		n, err := node.NewNode(node.Opts{
-			Host:     "localhost",
-			Port:     3737,
-			Protocol: node.Standard,
-			ID:       uuid.New(),
+			Host:           "localhost",
+			Port:           3737,
+			HandlerBuilder: &ws.HandlerBuilder{},
+			ID:             uuid.New(),
 		})
 		require.ErrorContains(t, err, "invalid hostname")
 		require.Nil(t, n)
 
 		n, err = node.NewNode(node.Opts{
-			Host:     "localhost",
-			Port:     3737,
-			Protocol: node.Standard,
-			ID:       uuid.New(),
-			Hostname: "invalid_hostname",
+			Host:           "localhost",
+			Port:           3737,
+			HandlerBuilder: &ws.HandlerBuilder{},
+			ID:             uuid.New(),
+			Hostname:       "invalid_hostname",
 		})
 		require.ErrorContains(t, err, "invalid hostname")
 		require.Nil(t, n)
@@ -354,11 +355,12 @@ func TestNode(t *testing.T) {
 		t.Parallel()
 
 		node, err := node.NewNode(node.Opts{
-			Host:     "localhost",
-			Port:     3737,
-			Protocol: node.Standard,
-			Hostname: "kheper.local",
-			ID:       uuid.New(),
+			Host:           "localhost",
+			Port:           3737,
+			HandlerBuilder: &ws.HandlerBuilder{},
+			Hostname:       "kheper.local",
+			ID:             uuid.New(),
+			Logger:         zap.NewNop(),
 		})
 		require.ErrorContains(t, err, "ping interval must be > 0")
 		require.Nil(t, node)
@@ -368,12 +370,14 @@ func TestNode(t *testing.T) {
 		t.Parallel()
 
 		node, err := node.NewNode(node.Opts{
-			Host:         "localhost",
-			Port:         3737,
-			Protocol:     node.Standard,
-			Hostname:     "kheper.local",
-			ID:           uuid.New(),
-			PingInterval: 1,
+			Host: "localhost",
+			Port: 3737,
+			HandlerBuilder: &ws.HandlerBuilder{
+				PingInterval: 1,
+			},
+			Hostname: "kheper.local",
+			ID:       uuid.New(),
+			Logger:   zap.NewNop(),
 		})
 		require.ErrorContains(t, err, "ping jitter must be > 0")
 		require.Nil(t, node)
@@ -383,13 +387,14 @@ func TestNode(t *testing.T) {
 		t.Parallel()
 
 		node, err := node.NewNode(node.Opts{
-			Host:         "localhost",
-			Port:         3737,
-			Protocol:     node.Standard,
-			Hostname:     "kheper.local",
-			ID:           uuid.New(),
-			PingInterval: 1,
-			PingJitter:   1,
+			Host: "localhost",
+			Port: 3737,
+			HandlerBuilder: &ws.HandlerBuilder{
+				PingInterval: 1,
+				PingJitter:   1,
+			},
+			Hostname: "kheper.local",
+			ID:       uuid.New(),
 		})
 		require.ErrorContains(t, err, "logger must be set")
 		require.Nil(t, node)
@@ -399,14 +404,15 @@ func TestNode(t *testing.T) {
 		t.Parallel()
 
 		node, err := node.NewNode(node.Opts{
-			Host:         "localhost",
-			Port:         3737,
-			Protocol:     node.Standard,
-			Hostname:     "kheper.local",
-			ID:           uuid.New(),
-			PingInterval: 1,
-			PingJitter:   1,
-			Logger:       zap.NewNop(),
+			Host: "localhost",
+			Port: 3737,
+			HandlerBuilder: &ws.HandlerBuilder{
+				PingInterval: 1,
+				PingJitter:   1,
+			},
+			Hostname: "kheper.local",
+			ID:       uuid.New(),
+			Logger:   zap.NewNop(),
 		})
 		require.NoError(t, err)
 		require.NotNil(t, node)
@@ -428,15 +434,16 @@ func TestNode(t *testing.T) {
 		n, err := node.NewNode(node.Opts{
 			Host:                    mockServer.host,
 			Port:                    mockServer.port,
-			Protocol:                node.Standard,
 			RequiredPayloadEntities: []string{"routes"},
 			Certificate:             mockServer.tlsConfig.Certificates[0],
 			ID:                      uuid.New(),
 			Hostname:                "kheper.local",
-			HandshakeTimeout:        5 * time.Second,
-			PingInterval:            100 * time.Millisecond,
-			PingJitter:              1,
-			Logger:                  logger,
+			HandlerBuilder: &ws.HandlerBuilder{
+				HandshakeTimeout: 5 * time.Second,
+				PingInterval:     100 * time.Millisecond,
+				PingJitter:       1,
+			},
+			Logger: logger,
 		})
 		require.NoError(t, err)
 		require.NotNil(t, n)
@@ -504,16 +511,17 @@ func TestNode(t *testing.T) {
 		defer mockServer.cancel()
 
 		node, err := node.NewNode(node.Opts{
-			Host:             mockServer.host,
-			Port:             mockServer.port,
-			Protocol:         node.Standard,
-			Certificate:      mockServer.tlsConfig.Certificates[0],
-			ID:               uuid.New(),
-			Hostname:         "kheper.local",
-			HandshakeTimeout: 5 * time.Second,
-			PingInterval:     1,
-			PingJitter:       1,
-			Logger:           zap.NewNop(),
+			Host:        mockServer.host,
+			Port:        mockServer.port,
+			Certificate: mockServer.tlsConfig.Certificates[0],
+			ID:          uuid.New(),
+			Hostname:    "kheper.local",
+			HandlerBuilder: &ws.HandlerBuilder{
+				HandshakeTimeout: 5 * time.Second,
+				PingInterval:     1,
+				PingJitter:       1,
+			},
+			Logger: zap.NewNop(),
 		})
 		require.NoError(t, err)
 		require.NotNil(t, node)
@@ -533,16 +541,17 @@ func TestNode(t *testing.T) {
 		defer mockServer.cancel()
 
 		n, err := node.NewNode(node.Opts{
-			Host:             mockServer.host,
-			Port:             mockServer.port,
-			Protocol:         node.Standard,
-			Certificate:      mockServer.tlsConfig.Certificates[0],
-			ID:               uuid.New(),
-			Hostname:         "kheper.local",
-			HandshakeTimeout: 5 * time.Second,
-			PingInterval:     15 * time.Second,
-			PingJitter:       10 * time.Second,
-			Logger:           zap.NewNop(),
+			Host:        mockServer.host,
+			Port:        mockServer.port,
+			Certificate: mockServer.tlsConfig.Certificates[0],
+			ID:          uuid.New(),
+			Hostname:    "kheper.local",
+			HandlerBuilder: &ws.HandlerBuilder{
+				HandshakeTimeout: 5 * time.Second,
+				PingInterval:     15 * time.Second,
+				PingJitter:       10 * time.Second,
+			},
+			Logger: zap.NewNop(),
 		})
 		require.NoError(t, err)
 		require.NotNil(t, n)
@@ -638,16 +647,17 @@ func TestNode(t *testing.T) {
 			go func() {
 				defer wg.Done()
 				node, err := node.NewNode(node.Opts{
-					Host:             host,
-					Port:             port,
-					Protocol:         node.Standard,
-					Certificate:      tlsConfig.Certificates[0],
-					ID:               uuid.New(),
-					Hostname:         "kheper.local",
-					HandshakeTimeout: 5 * time.Second,
-					PingInterval:     1,
-					PingJitter:       1,
-					Logger:           zap.NewNop(),
+					Host:        host,
+					Port:        port,
+					Certificate: tlsConfig.Certificates[0],
+					ID:          uuid.New(),
+					Hostname:    "kheper.local",
+					HandlerBuilder: &ws.HandlerBuilder{
+						HandshakeTimeout: 5 * time.Second,
+						PingInterval:     1,
+						PingJitter:       1,
+					},
+					Logger: zap.NewNop(),
 				})
 				require.NoError(t, err)
 				require.NotNil(t, node)
@@ -688,18 +698,19 @@ func TestNode(t *testing.T) {
 					go func() {
 						defer wg.Done()
 						node, err := node.NewNode(node.Opts{
-							Host:             host,
-							Port:             port,
-							Protocol:         node.Standard,
-							CipherSuite:      cipherSuite,
-							TLSVersion:       tls.VersionTLS12,
-							Certificate:      certificate,
-							ID:               uuid.New(),
-							Hostname:         "kheper.local",
-							HandshakeTimeout: 5 * time.Second,
-							PingInterval:     1,
-							PingJitter:       1,
-							Logger:           zap.NewNop(),
+							Host:        host,
+							Port:        port,
+							CipherSuite: cipherSuite,
+							TLSVersion:  tls.VersionTLS12,
+							Certificate: certificate,
+							ID:          uuid.New(),
+							Hostname:    "kheper.local",
+							HandlerBuilder: &ws.HandlerBuilder{
+								HandshakeTimeout: 5 * time.Second,
+								PingInterval:     1,
+								PingJitter:       1,
+							},
+							Logger: zap.NewNop(),
 						})
 						require.NoError(t, err)
 						require.NotNil(t, node)
