@@ -42,6 +42,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/mikefero/ankh"
+	"github.com/mikefero/kheper/internal/config"
 	"github.com/mikefero/kheper/internal/protocols/ws"
 	"github.com/mikefero/kheper/node"
 	"github.com/ovechkin-dm/mockio/matchers"
@@ -372,9 +373,9 @@ func TestNode(t *testing.T) {
 		node, err := node.NewNode(node.Opts{
 			Host: "localhost",
 			Port: 3737,
-			HandlerBuilder: &ws.HandlerBuilder{
+			HandlerBuilder: &ws.HandlerBuilder{Globals: &config.GlobalsNode{
 				PingInterval: 1,
-			},
+			}},
 			Hostname: "kheper.local",
 			ID:       uuid.New(),
 			Logger:   zap.NewNop(),
@@ -389,10 +390,10 @@ func TestNode(t *testing.T) {
 		node, err := node.NewNode(node.Opts{
 			Host: "localhost",
 			Port: 3737,
-			HandlerBuilder: &ws.HandlerBuilder{
+			HandlerBuilder: &ws.HandlerBuilder{Globals: &config.GlobalsNode{
 				PingInterval: 1,
 				PingJitter:   1,
-			},
+			}},
 			Hostname: "kheper.local",
 			ID:       uuid.New(),
 		})
@@ -406,10 +407,10 @@ func TestNode(t *testing.T) {
 		node, err := node.NewNode(node.Opts{
 			Host: "localhost",
 			Port: 3737,
-			HandlerBuilder: &ws.HandlerBuilder{
+			HandlerBuilder: &ws.HandlerBuilder{Globals: &config.GlobalsNode{
 				PingInterval: 1,
 				PingJitter:   1,
-			},
+			}},
 			Hostname: "kheper.local",
 			ID:       uuid.New(),
 			Logger:   zap.NewNop(),
@@ -438,11 +439,11 @@ func TestNode(t *testing.T) {
 			Certificate:             mockServer.tlsConfig.Certificates[0],
 			ID:                      uuid.New(),
 			Hostname:                "kheper.local",
-			HandlerBuilder: &ws.HandlerBuilder{
+			HandlerBuilder: &ws.HandlerBuilder{Globals: &config.GlobalsNode{
 				HandshakeTimeout: 5 * time.Second,
 				PingInterval:     100 * time.Millisecond,
 				PingJitter:       1,
-			},
+			}},
 			Logger: logger,
 		})
 		require.NoError(t, err)
@@ -516,11 +517,11 @@ func TestNode(t *testing.T) {
 			Certificate: mockServer.tlsConfig.Certificates[0],
 			ID:          uuid.New(),
 			Hostname:    "kheper.local",
-			HandlerBuilder: &ws.HandlerBuilder{
+			HandlerBuilder: &ws.HandlerBuilder{Globals: &config.GlobalsNode{
 				HandshakeTimeout: 5 * time.Second,
 				PingInterval:     1,
 				PingJitter:       1,
-			},
+			}},
 			Logger: zap.NewNop(),
 		})
 		require.NoError(t, err)
@@ -546,11 +547,11 @@ func TestNode(t *testing.T) {
 			Certificate: mockServer.tlsConfig.Certificates[0],
 			ID:          uuid.New(),
 			Hostname:    "kheper.local",
-			HandlerBuilder: &ws.HandlerBuilder{
+			HandlerBuilder: &ws.HandlerBuilder{Globals: &config.GlobalsNode{
 				HandshakeTimeout: 5 * time.Second,
 				PingInterval:     15 * time.Second,
 				PingJitter:       10 * time.Second,
-			},
+			}},
 			Logger: zap.NewNop(),
 		})
 		require.NoError(t, err)
@@ -652,11 +653,11 @@ func TestNode(t *testing.T) {
 					Certificate: tlsConfig.Certificates[0],
 					ID:          uuid.New(),
 					Hostname:    "kheper.local",
-					HandlerBuilder: &ws.HandlerBuilder{
+					HandlerBuilder: &ws.HandlerBuilder{Globals: &config.GlobalsNode{
 						HandshakeTimeout: 5 * time.Second,
 						PingInterval:     1,
 						PingJitter:       1,
-					},
+					}},
 					Logger: zap.NewNop(),
 				})
 				require.NoError(t, err)
@@ -705,11 +706,11 @@ func TestNode(t *testing.T) {
 							Certificate: certificate,
 							ID:          uuid.New(),
 							Hostname:    "kheper.local",
-							HandlerBuilder: &ws.HandlerBuilder{
+							HandlerBuilder: &ws.HandlerBuilder{Globals: &config.GlobalsNode{
 								HandshakeTimeout: 5 * time.Second,
 								PingInterval:     1,
 								PingJitter:       1,
-							},
+							}},
 							Logger: zap.NewNop(),
 						})
 						require.NoError(t, err)

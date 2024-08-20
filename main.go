@@ -48,19 +48,17 @@ var (
 	BuildDate string
 )
 
-func getHanlderBuilder(g config.GlobalsNode, n config.Node) (node.ProtocolHandlerBuilder, error) {
+func getHanlderBuilder(g *config.GlobalsNode, n *config.Node) (node.ProtocolHandlerBuilder, error) {
 	switch strings.ToLower(n.Connection.Protocol) {
 	case "standard":
 		return &ws.HandlerBuilder{
-			HandshakeTimeout: g.HandshakeTimeout,
-			PingInterval:     g.PingInterval,
-			PingJitter:       g.PingJitter,
+			Globals: g,
+			Node:    n,
 		}, nil
 	case "jsonrpc":
 		return &jsonrpc.HandlerBuilder{
-			HandShakeTimeout: g.HandshakeTimeout,
-			PingInterval:     g.PingInterval,
-			PingJitter:       g.PingJitter,
+			Globals: g,
+			Node:    n,
 		}, nil
 	default:
 		return nil, errors.New("invalid protocol")
@@ -130,7 +128,7 @@ func main() {
 	// Create the nodes from the configuration. In order to ensure that user
 	// break signals are handled properly and the nodes are created in a goroutine.
 	for _, n := range config.Nodes {
-		handlerBuilder, err := getHanlderBuilder(nodeConfiguration, n)
+		handlerBuilder, err := getHanlderBuilder(&nodeConfiguration, &n)
 		if err != nil {
 			panic(fmt.Sprintf("unable to validate protocol %s: %v", n.Connection.Protocol, err))
 		}

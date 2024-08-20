@@ -31,6 +31,7 @@ import (
 	"time"
 
 	"github.com/mikefero/ankh"
+	"github.com/mikefero/kheper/internal/config"
 	"github.com/mikefero/kheper/internal/database"
 	"github.com/mikefero/kheper/internal/monitoring"
 	"github.com/mikefero/kheper/node"
@@ -50,18 +51,17 @@ var (
 )
 
 type HandlerBuilder struct {
-	HandshakeTimeout time.Duration
-	PingInterval     time.Duration
-	PingJitter       time.Duration
+	Globals *config.GlobalsNode
+	Node    *config.Node
 }
 
 func (b *HandlerBuilder) Build(opts node.ProtocolHandlerBuildOpts) (node.ProtocolHandler, error) {
 	var err error
 
-	if b.PingInterval <= 0 {
+	if b.Globals.PingInterval <= 0 {
 		return nil, errors.New("ping interval must be > 0")
 	}
-	if b.PingJitter <= 0 {
+	if b.Globals.PingJitter <= 0 {
 		return nil, errors.New("ping jitter must be > 0")
 	}
 
@@ -69,15 +69,15 @@ func (b *HandlerBuilder) Build(opts node.ProtocolHandlerBuildOpts) (node.Protoco
 		db:           opts.Db,
 		logger:       opts.Logger,
 		nodeInfo:     opts.NodeInfo,
-		pingInterval: b.PingInterval,
-		pingJitter:   b.PingJitter,
+		pingInterval: b.Globals.PingInterval,
+		pingJitter:   b.Globals.PingJitter,
 		attributes:   opts.Attributes,
 		metrics:      opts.Metrics,
 	}
 
 	handler.client, err = ankh.NewWebSocketClient(ankh.WebSocketClientOpts{
 		Handler:          handler,
-		HandShakeTimeout: b.HandshakeTimeout,
+		HandShakeTimeout: b.Globals.HandshakeTimeout,
 		ServerURL: url.URL{
 			Scheme: "wss",
 			Host:   fmt.Sprintf("%s:%d", opts.ConnectionOpts.Host, opts.ConnectionOpts.Port),

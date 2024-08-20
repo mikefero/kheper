@@ -15,43 +15,46 @@ package jsonrpc
 
 import (
 	"context"
-	"errors"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
 	"time"
 
-	"github.com/mikefero/ankh"
+	"github.com/Kong/go-openrpc/runtime"
+	"github.com/Kong/go-openrpc/websocket"
+
+	gorillaWebsocket "github.com/gorilla/websocket"
+	"github.com/mikefero/kheper/internal/config"
 	"github.com/mikefero/kheper/internal/database"
 	"github.com/mikefero/kheper/internal/monitoring"
+	"github.com/mikefero/kheper/internal/protocols/jsonrpc/capabilities"
 	"github.com/mikefero/kheper/node"
 	"go.opentelemetry.io/otel/attribute"
 	"go.uber.org/zap"
 )
 
+const (
+	CapabilitiesHeaderKey = "X-Kong-RPC-Capabilities"
+)
+
 type HandlerBuilder struct {
-	HandShakeTimeout time.Duration
-	PingInterval     time.Duration
-	PingJitter       time.Duration
+	Globals *config.GlobalsNode
+	Node    *config.Node
 }
 
 func (b *HandlerBuilder) Build(opts node.ProtocolHandlerBuildOpts) (node.ProtocolHandler, error) {
-	var err error
 
 	handler := &protocolHandlerJSONRPC{
-		db:           opts.Db,
-		logger:       opts.Logger,
-		nodeInfo:     opts.NodeInfo,
-		pingInterval: b.PingInterval,
-		pingJitter:   b.PingJitter,
-		attributes:   opts.Attributes,
-		metrics:      opts.Metrics,
-	}
-
-	handler.client, err = ankh.NewWebSocketClient(ankh.WebSocketClientOpts{
-		Handler:          handler,
-		HandShakeTimeout: b.HandShakeTimeout,
-		ServerURL: url.URL{
+		db:             opts.Db,
+		logger:         opts.Logger,
+		nodeInfo:       opts.NodeInfo,
+		numConnections: b.Node.NumConnections,
+		pingInterval:   b.Globals.PingInterval,
+		pingJitter:     b.Globals.PingJitter,
+		attributes:     opts.Attributes,
+		metrics:        opts.Metrics,
+		serverURL: url.URL{
 			Scheme: "wss",
 			Host:   fmt.Sprintf("%s:%d", opts.ConnectionOpts.Host, opts.ConnectionOpts.Port),
 			Path:   "/v2/outlet",
@@ -61,70 +64,90 @@ func (b *HandlerBuilder) Build(opts node.ProtocolHandlerBuildOpts) (node.Protoco
 				"node_version":  []string{opts.NodeInfo.Version.String()},
 			}.Encode(),
 		},
-		TLSConfig: opts.ConnectionOpts.TLSConfig,
-	})
-	if err != nil {
-		return nil, err
+		dialer: gorillaWebsocket.Dialer{
+			HandshakeTimeout: b.Globals.HandshakeTimeout,
+			TLSClientConfig:  opts.ConnectionOpts.TLSConfig,
+			Subprotocols:     []string{"kong.rpc.v1"},
+		},
+		capabilityNames: b.Node.Capabilities,
 	}
 
 	return handler, nil
 }
 
 type protocolHandlerJSONRPC struct {
-	db           *database.Database
-	logger       *zap.Logger
-	nodeInfo     node.Info
-	client       *ankh.WebSocketClient
-	pingInterval time.Duration
-	pingJitter   time.Duration
+	db             *database.Database
+	logger         *zap.Logger
+	serverURL      url.URL
+	nodeInfo       node.Info
+	numConnections int
+	pingInterval   time.Duration
+	pingJitter     time.Duration
 
 	attributes []attribute.KeyValue
 	metrics    *monitoring.Monitoring
 
-	session *ankh.Session
+	dialer          gorillaWebsocket.Dialer
+	connections     []*runtime.Conn
+	capabilityNames []string
 }
 
 func (s *protocolHandlerJSONRPC) IsConnected() bool {
-	return s.client != nil && s.client.IsConnected()
+	return len(s.connections) > 0
 }
 
 func (s *protocolHandlerJSONRPC) Run(ctx context.Context) error {
+
+	capabilitiesHeader, err := json.Marshal(s.capabilityNames)
+	if err != nil {
+		return err
+	}
+
+	reqHeader := http.Header{
+		CapabilitiesHeaderKey: []string{string(capabilitiesHeader)},
+	}
+
+	snappy := websocket.NewSnappyCodec()
+	s.connections = make([]*runtime.Conn, s.numConnections)
+
+	for i := range s.numConnections {
+		wsConn, resp, err := s.dialer.Dial(s.serverURL.String(), reqHeader)
+		if err != nil {
+			return fmt.Errorf("failed to dial connection #%d: %w", i, err)
+		}
+		_ = resp
+
+		s.connections[i] = runtime.NewConnection(websocket.NewWebsocketTransport(wsConn, snappy))
+		err = s.registerCapabilities(s.connections[i], resp.Header.Get(CapabilitiesHeaderKey))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *protocolHandlerJSONRPC) registerCapabilities(conn *runtime.Conn, capabilitiesHeader string) error {
+	capabilityNames := []string{}
+	err := json.Unmarshal([]byte(capabilitiesHeader), &capabilityNames)
+	if err != nil {
+		return err
+	}
+
+	s.logger.Info("negotiated capabilities", zap.Strings("capabilities", capabilityNames))
+
+	for _, k := range capabilityNames {
+		if err = capabilities.RegisterByName(conn, k); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
 func (s *protocolHandlerJSONRPC) Close() error {
-	if s.client == nil {
-		return nil
+	for _, conn := range s.connections {
+		conn.Close()
 	}
-
-	return errors.New("not implemented")
-}
-
-func (s *protocolHandlerJSONRPC) OnConnectedHandler( /*resp*/ _ *http.Response, session *ankh.Session) error {
-	s.session = session
-	panic("not implemented")
-}
-
-func (s *protocolHandlerJSONRPC) OnDisconnectionHandler() {
-	panic("not implemented")
-}
-
-func (s *protocolHandlerJSONRPC) OnDisconnectionErrorHandler( /*err*/ _ error) {
-	panic("not implemented")
-}
-
-func (s *protocolHandlerJSONRPC) OnPongHandler( /*appData*/ _ string) {
-	panic("not implemented")
-}
-
-func (s *protocolHandlerJSONRPC) OnReadMessageHandler( /*messageType*/ _ int /*message*/, _ []byte) {
-	panic("not implemented")
-}
-
-func (s *protocolHandlerJSONRPC) OnReadMessageErrorHandler( /*err*/ _ error) {
-	panic("not implemented")
-}
-
-func (s *protocolHandlerJSONRPC) OnReadMessagePanicHandler( /*err*/ _ error) {
-	panic("not implemented")
+	s.connections = nil
+	return nil
 }
