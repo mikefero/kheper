@@ -29,6 +29,7 @@ import (
 	"github.com/mikefero/kheper/internal/database"
 	"github.com/mikefero/kheper/internal/monitoring"
 	"github.com/mikefero/kheper/internal/protocols/jsonrpc/capabilities"
+	"github.com/mikefero/kheper/internal/protocols/jsonrpc/capabilities/store"
 	"github.com/mikefero/kheper/node"
 	"go.opentelemetry.io/otel/attribute"
 	"go.uber.org/zap"
@@ -118,6 +119,7 @@ func (s *protocolHandlerJSONRPC) Run(ctx context.Context) error {
 		_ = resp
 
 		s.connections[i] = runtime.NewConnection(websocket.NewWebsocketTransport(wsConn, snappy))
+		s.connections[i].SetUserData(store.NewMethodStore(s.db, s.nodeInfo.ID))
 		err = s.registerCapabilities(s.connections[i], resp.Header.Get(CapabilitiesHeaderKey))
 		if err != nil {
 			return err

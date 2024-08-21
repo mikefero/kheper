@@ -1,31 +1,38 @@
 //go:generate go run github.com/Kong/go-openrpc/codegen/cmd/gen@latest -i kong.debug.yaml -o kong_debug.gen.go
 package kong_debug
 
-import "context"
+import (
+	"context"
 
-type node interface {
-	GetLogLevel() int
-	SetLogLevel(int)
-}
+	"github.com/mikefero/kheper/internal/protocols/jsonrpc/capabilities/store"
+)
 
-func Wrap() *Wrapper[node] {
-	return &Wrapper[node]{
+func Wrap() *Wrapper[store.MethodStore] {
+	return &Wrapper[store.MethodStore]{
 		Handler: debugHandler{},
 	}
 }
 
 type debugHandler struct{}
 
-func (dh debugHandler) GetLogLevel(ctx context.Context, node node) (GetLogLevelResponse, error) {
-	return GetLogLevelResult(node.GetLogLevel()), nil
+func (dh debugHandler) GetLogLevel(ctx context.Context, methodStore store.MethodStore) (GetLogLevelResponse, error) {
+	resp := GetLogLevelResult(0)
+	if err := methodStore.RecordMethodCall(nil, resp); err != nil {
+		return nil, err
+	}
+
+	return resp, nil
 }
 
 func (dh debugHandler) SetLogLevel(
 	ctx context.Context,
-	node node,
+	methodStore store.MethodStore,
 	params *SetLogLevelParams,
 ) (SetLogLevelResponse, error,
 ) {
-	node.SetLogLevel(int(params.LogLevel))
-	return SetLogLevelResult(true), nil
+	resp := SetLogLevelResult(true)
+	if err := methodStore.RecordMethodCall(params, resp); err != nil {
+		return nil, err
+	}
+	return resp, nil
 }

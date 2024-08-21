@@ -5,12 +5,11 @@ import (
 	"context"
 
 	"github.com/Kong/go-openrpc/runtime"
+	"github.com/mikefero/kheper/internal/protocols/jsonrpc/capabilities/store"
 )
 
-type node interface{}
-
-func Wrap() *Wrapper[node] {
-	return &Wrapper[node]{
+func Wrap() *Wrapper[store.MethodStore] {
+	return &Wrapper[store.MethodStore]{
 		Handler: metaHandler{},
 	}
 }
@@ -20,8 +19,12 @@ type metaHandler struct {
 
 func (mh metaHandler) CapabilityAdvertisement(
 	ctx context.Context,
-	node node,
+	methodStore store.MethodStore,
 	params *CapabilityAdvertisementParams,
 ) (CapabilityAdvertisementResponse, error) {
+	if err := methodStore.RecordErrorResponse(runtime.MethodNotFoundError); err != nil {
+		return nil, err
+	}
+
 	return nil, runtime.MethodNotFoundError
 }

@@ -6,20 +6,29 @@ import (
 	"github.com/Kong/go-openrpc/runtime"
 	"github.com/mikefero/kheper/internal/protocols/jsonrpc/capabilities/kong_debug/v1"
 	"github.com/mikefero/kheper/internal/protocols/jsonrpc/capabilities/kong_meta/v1"
+	"github.com/mikefero/kheper/internal/protocols/jsonrpc/capabilities/store"
 	"golang.org/x/exp/maps"
 )
 
-// AllCapabilities is a map containing all implemented AllCapabilities
-var AllCapabilities map[string]runtime.Wrapper
+type compatibleWrapper interface {
+	runtime.Wrapper
+	SetUserData(*runtime.Conn, store.MethodStore)
+}
 
-func Init() {
-	// NOTE: add any new capability wrappers to this list.
-	for _, w := range []runtime.Wrapper{
-		kong_meta.Wrap(),
-		kong_debug.Wrap(),
-	} {
-		AllCapabilities[w.GetID()] = w
+// AllCapabilities is a map containing all implemented capabilities
+// NOTE: add here any new capability as they're implemented
+var AllCapabilities = makeWrapperMap(
+	kong_meta.Wrap(),
+	kong_debug.Wrap(),
+)
+
+func makeWrapperMap(wrappers ...compatibleWrapper) map[string]compatibleWrapper {
+	// m := map[string]compatibleWrapper{}
+	m := make(map[string]compatibleWrapper, len(wrappers))
+	for _, w := range wrappers {
+		m[w.GetID()] = w
 	}
+	return m
 }
 
 // KnownCapabilities returns the intersection between the given list of capability names
@@ -41,8 +50,8 @@ func KnownCapabilities(from []string) []string {
 
 // RegisterByName adds a capability to a connection.
 func RegisterByName(conn *runtime.Conn, name string) error {
-	capability, found := AllCapabilities[name]
-	if !found {
+	capability, found_that := AllCapabilities[name]
+	if !found_that {
 		return fmt.Errorf("unknown capability name %q", name)
 	}
 
