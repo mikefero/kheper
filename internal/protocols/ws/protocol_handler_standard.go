@@ -34,6 +34,7 @@ import (
 	"github.com/mikefero/kheper/internal/config"
 	"github.com/mikefero/kheper/internal/database"
 	"github.com/mikefero/kheper/internal/monitoring"
+	"github.com/mikefero/kheper/internal/tick"
 	"github.com/mikefero/kheper/node"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -162,40 +163,16 @@ func (s *protocolHandlerStandard) OnConnectedHandler(_ *http.Response, session *
 		return fmt.Errorf("failed to add node to database: %w", err)
 	}
 
-	// Create a jittered ping interval function
-	pingInterval := func() time.Duration {
-		jitter, err := rand.Int(rand.Reader, big.NewInt(s.pingJitter.Nanoseconds()))
-		if err != nil {
-			s.logger.Error("unable to generate jitter", zap.Error(err))
-			jitter = big.NewInt(0)
+	(&tick.Ticker{
+		Interval: s.pingInterval,
+		Jitter:   s.pingJitter,
+		Logger:   s.logger,
+		Tracer:   otel.Tracer("", trace.WithInstrumentationAttributes(s.attributes...)),
+	}).Start(context.Background(), func(ctx context.Context) {
+		if err := s.ping(ctx); err != nil {
+			s.logger.Error("unable to send ping", zap.Error(err))
 		}
-		s.logger.Debug("ping interval",
-			zap.Duration("interval", s.pingInterval),
-			zap.Duration("jitter", time.Duration(jitter.Int64())),
-		)
-		return s.pingInterval + time.Duration(jitter.Int64())
-	}
-
-	// Start the ping interval
-	pingCtx, pingCancel := context.WithCancel(context.Background())
-	s.cancel = pingCancel
-	go func() {
-		defer pingCancel()
-
-		for {
-			select {
-			case <-pingCtx.Done():
-				return
-			case <-time.After(pingInterval()):
-				pingIntervalCtx, span := otel.Tracer("").Start(pingCtx, "ping-interval",
-					trace.WithAttributes(s.attributes...))
-				if err := s.ping(pingIntervalCtx); err != nil {
-					s.logger.Error("unable to send ping", zap.Error(err))
-				}
-				span.End()
-			}
-		}
-	}()
+	})
 
 	return nil
 }
