@@ -22,7 +22,7 @@ func (mh metaHandler) CapabilityAdvertisement(
 	methodStore store.MethodStore,
 	params *CapabilityAdvertisementParams,
 ) (CapabilityAdvertisementResponse, error) {
-	if err := methodStore.RecordErrorResponse(runtime.MethodNotFoundError); err != nil {
+	if err := methodStore.RecordErrorResponse(params, runtime.MethodNotFoundError); err != nil {
 		return nil, err
 	}
 

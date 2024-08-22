@@ -6,6 +6,7 @@ import (
 	"github.com/Kong/go-openrpc/runtime"
 	"github.com/mikefero/kheper/internal/protocols/jsonrpc/capabilities/kong_debug/v1"
 	"github.com/mikefero/kheper/internal/protocols/jsonrpc/capabilities/kong_meta/v1"
+	"github.com/mikefero/kheper/internal/protocols/jsonrpc/capabilities/kong_sync/v2"
 	"github.com/mikefero/kheper/internal/protocols/jsonrpc/capabilities/store"
 	"golang.org/x/exp/maps"
 )
@@ -20,6 +21,7 @@ type compatibleWrapper interface {
 var AllCapabilities = makeWrapperMap(
 	kong_meta.Wrap(),
 	kong_debug.Wrap(),
+	kong_sync.Wrap(),
 )
 
 func makeWrapperMap(wrappers ...compatibleWrapper) map[string]compatibleWrapper {

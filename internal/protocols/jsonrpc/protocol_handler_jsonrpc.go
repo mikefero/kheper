@@ -29,9 +29,13 @@ import (
 	"github.com/mikefero/kheper/internal/database"
 	"github.com/mikefero/kheper/internal/monitoring"
 	"github.com/mikefero/kheper/internal/protocols/jsonrpc/capabilities"
+	"github.com/mikefero/kheper/internal/protocols/jsonrpc/capabilities/kong_sync/v2"
 	"github.com/mikefero/kheper/internal/protocols/jsonrpc/capabilities/store"
+	"github.com/mikefero/kheper/internal/tick"
 	"github.com/mikefero/kheper/node"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 )
 
@@ -71,6 +75,7 @@ func (b *HandlerBuilder) Build(opts node.ProtocolHandlerBuildOpts) (node.Protoco
 			Subprotocols:     []string{"kong.rpc.v1"},
 		},
 		capabilityNames: b.Node.Capabilities,
+		methodStore:     store.NewMethodStore(opts.Db, opts.NodeInfo.ID),
 	}
 
 	return handler, nil
@@ -87,6 +92,8 @@ type protocolHandlerJSONRPC struct {
 
 	attributes []attribute.KeyValue
 	metrics    *monitoring.Monitoring
+
+	methodStore store.MethodStore
 
 	dialer          gorillaWebsocket.Dialer
 	connections     []*runtime.Conn
@@ -119,13 +126,26 @@ func (s *protocolHandlerJSONRPC) Run(ctx context.Context) error {
 		_ = resp
 
 		s.connections[i] = runtime.NewConnection(websocket.NewWebsocketTransport(wsConn, snappy))
-		s.connections[i].SetUserData(store.NewMethodStore(s.db, s.nodeInfo.ID))
+		s.connections[i].SetUserData(s.methodStore)
 		err = s.registerCapabilities(s.connections[i], resp.Header.Get(CapabilitiesHeaderKey))
 		if err != nil {
 			return err
 		}
 	}
+
+	s.startTicker()
+
 	return nil
+}
+
+func (s *protocolHandlerJSONRPC) startTicker() {
+	(&tick.Ticker{
+		Interval: s.pingInterval,
+		Jitter:   s.pingJitter,
+		Logger:   s.logger,
+		Tracer:   otel.Tracer("", trace.WithInstrumentationAttributes(s.attributes...)),
+	}).Start(context.Background(), s.ping)
+
 }
 
 func (s *protocolHandlerJSONRPC) registerCapabilities(conn *runtime.Conn, capabilitiesHeader string) error {
@@ -142,6 +162,41 @@ func (s *protocolHandlerJSONRPC) registerCapabilities(conn *runtime.Conn, capabi
 			return err
 		}
 	}
+
+	return nil
+}
+
+func (s *protocolHandlerJSONRPC) ping(ctx context.Context) {
+	ctx, span := monitoring.Tracer.Start(ctx, "ping")
+	defer span.End()
+
+	params := kong_sync.GetDeltaParams{
+		NodeId:  s.nodeInfo.ID.String(),
+		Version: s.nodeInfo.Version.String(),
+	}
+	resp, err := kong_sync.CallGetDelta(ctx, s.connections[0], &params)
+
+	if err != nil {
+		s.methodStore.RecordErrorResponse(&params, err)
+		return
+
+	}
+	s.methodStore.RecordMethodReturn(&params, resp)
+
+	sync, err := kong_sync.FoldGetDeltaResultError(resp, err)
+	if err != nil {
+		s.logger.Error("get delta error", zap.Error(err))
+	}
+
+	err = s.handleSync(ctx, sync)
+	if err != nil {
+		s.logger.Error("handle sync error", zap.Error(err))
+	}
+}
+
+func (s *protocolHandlerJSONRPC) handleSync(ctx context.Context, sync *kong_sync.GetDeltaResult) error {
+	ctx, span := monitoring.Tracer.Start(ctx, "handle-sync")
+	defer span.End()
 
 	return nil
 }

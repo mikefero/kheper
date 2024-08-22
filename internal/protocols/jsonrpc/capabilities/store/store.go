@@ -11,7 +11,8 @@ import (
 
 type MethodStore interface {
 	RecordMethodCall(runtime.Params, runtime.Response) error
-	RecordErrorResponse(err error) error
+	RecordMethodReturn(runtime.Params, runtime.Response) error
+	RecordErrorResponse(runtime.Params, error) error
 }
 
 type methodStore struct {
@@ -36,10 +37,20 @@ func (s *methodStore) RecordMethodCall(params runtime.Params, resp runtime.Respo
 	})
 }
 
-func (s *methodStore) RecordErrorResponse(err error) error {
+func (s *methodStore) RecordMethodReturn(params runtime.Params, resp runtime.Response) error {
+	return s.db.SaveRPC(context.Background(), database.RPCMethodRecord{
+		NodeId:   s.nodeId,
+		Seq:      s.counter.Add(1),
+		Params:   params,
+		Response: resp,
+	})
+}
+
+func (s *methodStore) RecordErrorResponse(params runtime.Params, err error) error {
 	return s.db.SaveRPC(context.Background(), database.RPCMethodRecord{
 		NodeId: s.nodeId,
 		Seq:    s.counter.Add(1),
+		Params: params,
 		Error:  err,
 	})
 }
