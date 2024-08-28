@@ -43,6 +43,7 @@ const (
 	defaultNodeHostname                  = "sequential"
 	defaultNodeID                        = "sequential"
 	defaultNodeInstances                 = 1
+	defaultNodeConnections               = 1
 )
 
 var defaultNodeVersions = []string{"3.7.1"}
@@ -122,6 +123,8 @@ type Node struct {
 	Connection Connection `yaml:"connection" mapstructure:"connection"`
 	// Instances is the number of nodes to create.
 	Instances int `yaml:"instances" mapstructure:"instances"`
+	// NumConnections is the number of connections per node
+	NumConnections int `yaml:"num_connections" mapstructure:"num_connections"`
 	// Group is the name of the group to which the node instance belongs.
 	Group *string `yaml:"group" mapstructure:"group"`
 	// Hostname is the RFC 1123 hostname of the node. If 'sequential' is specified
@@ -140,6 +143,10 @@ type Node struct {
 	// 1.2.3.4). Each version in the slice will be "round-robin" across the
 	// nodes based on the number of instances.
 	Versions []string `yaml:"versions" mapstructure:"versions"`
+	// Capabilities is the set of RPC capabilities the node will ask to the DP.
+	// Each one should be the full name, including version.
+	// It's valid to include more than one version of the same capability.
+	Capabilities []string `yaml:"capabilities" mapstructure:"capabilities"`
 }
 
 // Connection is the configuration for the connection to the control plane.
@@ -207,6 +214,7 @@ func NewConfig() (*Config, error) {
 	viper.SetDefault("nodes.id", defaultNodeID)
 	viper.SetDefault("nodes.instances", defaultNodeInstances)
 	viper.SetDefault("nodes.versions", defaultNodeVersions)
+	viper.SetDefault("nodes.num_connections", defaultNodeConnections)
 
 	// Node connection defaults
 	viper.SetDefault("nodes.connection.protocol", defaultNodeProtocol)

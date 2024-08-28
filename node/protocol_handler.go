@@ -14,17 +14,43 @@
 package node
 
 import (
+	"context"
 	"crypto/tls"
 
-	"github.com/mikefero/ankh"
+	"github.com/google/uuid"
+	"github.com/mikefero/kheper/internal/database"
+	"github.com/mikefero/kheper/internal/monitoring"
+	"go.opentelemetry.io/otel/attribute"
+	"go.uber.org/zap"
 )
 
-type protocolHandler interface {
-	ankh.WebSocketClientEventHandler
-	close() error
+type ProtocolHandler interface {
+	IsConnected() bool
+	Run(ctx context.Context) error
+	Close() error
 }
 
-func tlsVersionString(version uint16) string {
+type ProtocolHandlerBuildOpts struct {
+	ID             uuid.UUID
+	Db             *database.Database
+	Logger         *zap.Logger
+	ConnectionOpts ConnectionOpts
+	NodeInfo       Info
+	Metrics        *monitoring.Monitoring
+	Attributes     []attribute.KeyValue
+}
+
+type ConnectionOpts struct {
+	Host      string
+	Port      int
+	TLSConfig *tls.Config
+}
+
+type ProtocolHandlerBuilder interface {
+	Build(opts ProtocolHandlerBuildOpts) (ProtocolHandler, error)
+}
+
+func TLSVersionString(version uint16) string {
 	switch version {
 	case tls.VersionTLS10:
 		return "TLS 1.0"

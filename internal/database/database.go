@@ -20,6 +20,7 @@ import (
 	"reflect"
 	"sync"
 
+	"github.com/Kong/go-openrpc/runtime"
 	"github.com/google/uuid"
 	"github.com/hashicorp/go-memdb"
 	"github.com/mikefero/kheper/internal/monitoring"
@@ -82,6 +83,14 @@ type Node struct {
 type StringPtrIndex struct {
 	// Field is the name of the field to index.
 	Field string
+}
+
+type RPCMethodRecord struct {
+	NodeId   uuid.UUID
+	Seq      int64
+	Params   runtime.Params
+	Response runtime.Response
+	Error    error
 }
 
 // FromObject implements the memdb.Indexer interface.
@@ -153,6 +162,20 @@ func NewDatabase() (*Database, error) {
 							Name:    "group",
 							Unique:  false,
 							Indexer: &StringPtrIndex{Field: "Group"},
+						},
+					},
+				},
+				"rpc": {
+					Name: "rpc",
+					Indexes: map[string]*memdb.IndexSchema{
+						"node-id": {
+							Name: "node-id",
+							Indexer: &memdb.CompoundIndex{
+								Indexes: []memdb.Indexer{
+									&memdb.UUIDFieldIndex{Field: "nodeId"},
+									&memdb.IntFieldIndex{Field: "seq"},
+								},
+							},
 						},
 					},
 				},
@@ -357,6 +380,21 @@ func (d *Database) SetNode(ctx context.Context, node Node) error {
 	defer txn.Abort()
 	if err := txn.Insert("node", node); err != nil {
 		return fmt.Errorf("unable to insert node into database: %w", err)
+	}
+	txn.Commit()
+
+	return nil
+}
+
+func (d *Database) SaveRPC(ctx context.Context, record RPCMethodRecord) error {
+	_, span := monitoring.Tracer.Start(ctx, "SaveRPC")
+	defer span.End()
+
+	txn := d.db.Txn(true)
+	defer txn.Abort()
+
+	if err := txn.Insert("rpc", record); err != nil {
+		return fmt.Errorf("unable to insert rpc record into database: %w", err)
 	}
 	txn.Commit()
 

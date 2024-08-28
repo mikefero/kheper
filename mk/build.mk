@@ -52,3 +52,4 @@ generate:
 		-generate types \
 		-package api \
 		"$(APP_DIR)/openapi.yml" > "$(APP_DIR)/internal/api/types.go"
+	@go generate -v ./...
