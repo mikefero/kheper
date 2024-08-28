@@ -229,9 +229,10 @@ func (r GetDeltaWrongNodeIdError) Send(ctx context.Context, w *runtime.Conn, id 
 // Delta is defined in '#/components/schemas/delta'.
 // A Delta object represents a single change to the configuration
 type Delta struct {
-	Id      string                     `json:"id"`
-	Row     map[string]json.RawMessage `json:"row,omitempty"`
-	Type    string                     `json:"type"`
-	Version int64                      `json:"version"`
-	WsId    string                     `json:"ws_id"`
+	Id         string                     `json:"id"`
+	NewVersion string                     `json:"new_version,omitempty"`
+	Row        map[string]json.RawMessage `json:"row,omitempty"`
+	Type       string                     `json:"type"`
+	Version    string                     `json:"version"`
+	WsId       string                     `json:"ws_id"`
 }

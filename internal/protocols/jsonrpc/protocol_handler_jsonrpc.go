@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"sync"
 
 	"github.com/Kong/go-openrpc/runtime"
 	"github.com/Kong/go-openrpc/websocket"
@@ -33,6 +34,7 @@ import (
 	"github.com/mikefero/kheper/internal/tick"
 	"github.com/mikefero/kheper/node"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 )
@@ -103,6 +105,16 @@ func (s *protocolHandlerJSONRPC) IsConnected() bool {
 }
 
 func (s *protocolHandlerJSONRPC) Run(ctx context.Context) error {
+	ctx, span := monitoring.Tracer.Start(ctx, "jsonrpc-Run")
+	defer span.End()
+
+	err := s.storeNode(ctx)
+	if err != nil {
+		s.logger.Error("storing node in DB", zap.Error(err))
+		return err
+	}
+	defer s.deleteNode(ctx)
+
 	capabilitiesHeader, err := json.Marshal(s.capabilityNames)
 	if err != nil {
 		return err
@@ -115,6 +127,8 @@ func (s *protocolHandlerJSONRPC) Run(ctx context.Context) error {
 	snappy := websocket.NewSnappyCodec()
 	s.connections = make([]*runtime.Conn, s.numConnections)
 
+	var wg sync.WaitGroup
+
 	for i := range s.numConnections {
 		wsConn, resp, err := s.dialer.Dial(s.serverURL.String(), reqHeader)
 		if err != nil {
@@ -122,15 +136,27 @@ func (s *protocolHandlerJSONRPC) Run(ctx context.Context) error {
 		}
 		_ = resp
 
-		s.connections[i] = runtime.NewConnection(websocket.NewWebsocketTransport(wsConn, snappy))
-		s.connections[i].SetUserData(s.methodStore)
-		err = s.registerCapabilities(s.connections[i], resp.Header.Get(CapabilitiesHeaderKey))
+		conn := runtime.NewConnection(websocket.NewWebsocketTransport(wsConn, snappy))
+		s.connections[i] = conn
+		conn.SetUserData(s.methodStore)
+		err = s.registerCapabilities(conn, resp.Header.Get(CapabilitiesHeaderKey))
 		if err != nil {
 			return err
 		}
+		go func() {
+			wg.Add(1)
+			defer wg.Done()
+
+			err := conn.ReaderLoop(ctx)
+			s.connections[i] = nil
+			if err != nil {
+				s.logger.Error("connection closed", zap.Error(err), zap.Int("connection-number", i))
+			}
+		}()
 	}
 	s.ticker.Start(ctx, s.ping)
 
+	wg.Wait()
 	return nil
 }
 
@@ -156,12 +182,21 @@ func (s *protocolHandlerJSONRPC) ping(ctx context.Context) {
 	ctx, span := monitoring.Tracer.Start(ctx, "ping")
 	defer span.End()
 
+	conn := findConn(s.connections)
+	if conn == nil {
+		err := fmt.Errorf("no open connection")
+		span.SetAttributes(attribute.String("error", err.Error()))
+		s.logger.Error("can't ping", zap.Error(err))
+		return
+	}
+
 	params := kong_sync.GetDeltaParams{
 		NodeId:  s.nodeInfo.ID.String(),
-		Version: s.nodeInfo.Version.String(),
+		Version: s.getConfigurationVersion(ctx),
 	}
 	resp, err := kong_sync.CallGetDelta(ctx, s.connections[0], &params)
 	if err != nil {
+		span.SetAttributes(attribute.String("error", err.Error()))
 		s.methodStore.RecordErrorResponse(&params, err)
 		return
 
@@ -170,20 +205,143 @@ func (s *protocolHandlerJSONRPC) ping(ctx context.Context) {
 
 	sync, err := kong_sync.FoldGetDeltaResultError(resp, err)
 	if err != nil {
+		span.SetAttributes(attribute.String("error", err.Error()))
 		s.logger.Error("get delta error", zap.Error(err))
 	}
 
 	err = s.handleSync(ctx, sync)
 	if err != nil {
+		span.SetAttributes(attribute.String("error", err.Error()))
 		s.logger.Error("handle sync error", zap.Error(err))
 	}
+}
+
+func findConn(conns []*runtime.Conn) *runtime.Conn {
+	for _, c := range conns {
+		if c != nil {
+			return c
+		}
+	}
+	return nil
 }
 
 func (s *protocolHandlerJSONRPC) handleSync(ctx context.Context, sync *kong_sync.GetDeltaResult) error {
 	ctx, span := monitoring.Tracer.Start(ctx, "handle-sync")
 	defer span.End()
 
+	for i, delta := range *sync {
+		if err := s.applyDelta(ctx, delta); err != nil {
+			s.logger.Warn("applying Delta", zap.Int("delta-number", i), zap.Error(err))
+			return err
+		}
+	}
+
 	return nil
+}
+
+func (s *protocolHandlerJSONRPC) storeNode(ctx context.Context) error {
+	node := database.Node{
+		// CipherSuite:      tls.CipherSuiteName(s.session.ConnectionState.CipherSuite),
+		ControlPlaneHost: s.nodeInfo.Host,
+		Hostname:         s.nodeInfo.Hostname,
+		ID:               s.nodeInfo.ID.String(),
+		Payload:          map[string]interface{}{},
+		// TLSVersion:       node.TLSVersionString(s.session.ConnectionState.Version),
+		Version: s.nodeInfo.Version.String(),
+		Group:   s.nodeInfo.Group,
+	}
+	if err := s.db.SetNode(ctx, node); err != nil {
+		return fmt.Errorf("failed to add node to database: %w", err)
+	}
+	return nil
+}
+
+func (s *protocolHandlerJSONRPC) deleteNode(ctx context.Context) {
+	if err := s.db.DeleteNode(ctx, s.nodeInfo.Host, s.nodeInfo.ID); err != nil {
+		s.logger.Error("unable to delete configuration", zap.Error(err))
+	}
+}
+
+func (s *protocolHandlerJSONRPC) getConfigurationVersion(ctx context.Context) string {
+	ctx, span := monitoring.Tracer.Start(ctx, "getConfigurationVersion")
+	defer span.End()
+
+	node, err := s.db.GetNode(ctx, s.nodeInfo.Host, s.nodeInfo.ID)
+	if err != nil {
+		s.logger.Error("unable to get node", zap.Error(err))
+		return "0"
+	}
+
+	// Get the hash from the configuration or return a default 0's
+	configurationHash, ok := node.Payload["config_hash"].(string)
+	if !ok || len(configurationHash) == 0 {
+		return "0"
+	}
+	return fmt.Sprintf("%v", configurationHash)
+}
+
+func (s *protocolHandlerJSONRPC) applyDelta(ctx context.Context, delta kong_sync.Delta) error {
+	ctx, span := monitoring.Tracer.Start(ctx, "applyDelta")
+	defer span.End()
+
+	node, err := s.db.GetNode(ctx, s.nodeInfo.Host, s.nodeInfo.ID)
+	if err != nil {
+		return fmt.Errorf("unable to get node: %w", err)
+	}
+
+	configVersion, ok := node.Payload["config_hash"].(string)
+	if !ok || len(configVersion) == 0 {
+		configVersion = "0"
+	}
+
+	if delta.Version != configVersion {
+		return fmt.Errorf("config version mismatch (%q != %q)", delta.Version, configVersion)
+	}
+
+	if node.Payload == nil {
+		node.Payload = make(map[string]any)
+	}
+
+	if len(delta.Row) == 0 {
+		removeConfigEntry(node.Payload, delta.Type, delta.Id)
+	} else {
+		setConfigEntry(node.Payload, delta.Type, delta.Id, delta.Row)
+	}
+
+	node.Payload["config_hash"] = delta.NewVersion
+
+	err = s.db.SetNode(ctx, *node)
+
+	return nil
+}
+
+func removeConfigEntry(payload map[string]any, entryType, id string) {
+	table, ok := payload[entryType]
+	if !ok || table == nil {
+		return
+	}
+
+	entries, ok := table.(map[string]any)
+	if !ok || entries == nil {
+		return
+	}
+
+	delete(entries, id)
+}
+
+func setConfigEntry(payload map[string]any, entryType, id string, row any) {
+	table, ok := payload[entryType]
+	if !ok || table == nil {
+		payload[entryType] = map[string]any{id: row}
+		return
+	}
+
+	entries, ok := table.(map[string]any)
+	if !ok || entries == nil {
+		return
+	}
+
+	entries[id] = row
 }
 
 func (s *protocolHandlerJSONRPC) Close() error {
